@@ -1,4 +1,4 @@
-# Testing DataPrepv2.R (Steps 1-3)
+# Testing preprocess.R (Steps 1-3)
 
 Test Command for eQTL:
 
