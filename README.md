@@ -26,6 +26,7 @@ This pipeline provides an intuitive approach to colocalization, capable of proce
   * A .txt file with newline-seperated data. The first line is a header indicating the column content. Each subsequent line contains the gene using its Ensembl Gene ID (e.g. ENSG00000227232, ENSG00000162591, etc.).
 * Using ARIC-formatted pQTLs
   * A .txt file with newline-seperated data. The first line is a header indicating the column content. Each subsequent line contains the gene using its gene symbol (e.g. LAYN, PTEN, TP53I3, etc.).
+* See example files for reference (genes_eqtl.txt, genes_eqtl.txt)
  
 ## Necessary Inputs 
 To run the script, the following input options are required. Ensure that each file and directory is correctly specified:
