@@ -53,4 +53,4 @@ To run the script, the following input options are required. Ensure that each fi
   * `Rscript /home/project4/preprocessV2.R --genes "/home/project4/genes_pqtl.txt" --seqIDdir "/home/data/coloc_project/ARIC_pQTLs/seqid.txt" --GWASdir "/home/data/coloc_project/gwas_sumstats/breast_hg38.txt.gz" --pQTLdir "/home/data/coloc_project/ARIC_pQTLs/EA/" --CHR_input "CHR" --BP_input "BP" --A1_input "A1" --A2_input "A2" --BETA_input "BETA" --SE_input "SE" --outputdir "eQTL_results"`
 
 ## Testing locuscompare.R 
-* /home/project4/locuscompare.R --gwas ./eQTL_results/ENSG00000116254/ENSG00000116254_gwascoloc --twas ./eQTL_results/ENSG00000116254/ENSG00000116254_qtlcoloc --ref_dir /home/data/coloc_project/ref_data/ --gene_dir ./eQTL_results/ENSG00000116254/
+* `/home/project4/locuscompare.R --gwas ./eQTL_results/ENSG00000116254/ENSG00000116254_gwascoloc --twas ./eQTL_results/ENSG00000116254/ENSG00000116254_qtlcoloc --ref_dir /home/data/coloc_project/ref_data/ --gene_dir ./eQTL_results/ENSG00000116254/`
