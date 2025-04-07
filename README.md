@@ -11,6 +11,7 @@ This pipeline provides an intuitive approach to colocalization, capable of proce
   * hash
   * optparse
   * locuscompareR
+  * plink
 
 ## Description of Scripts 
 * preprocess.R
