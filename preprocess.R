@@ -3,6 +3,7 @@ library(dplyr)
 library(coloc)
 library(hash)
 library(optparse)
+library(R.utils)
 
 # Define string concatenation function
 "%&%" <- function(a, b) paste(a, b, sep="")
