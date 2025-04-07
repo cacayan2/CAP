@@ -10,6 +10,9 @@ This pipeline provides an intuitive approach to colocalization, capable of proce
   * coloc
   * hash
   * optparse
+  * locuscompareR
+  * plink
+  * R.utils
 
 ## Description of Scripts 
 * preprocess.R
@@ -52,4 +55,5 @@ To run the script, the following input options are required. Ensure that each fi
 * Test Command for pQTL:
   * `Rscript /home/project4/preprocessV2.R --genes "/home/project4/genes_pqtl.txt" --seqIDdir "/home/data/coloc_project/ARIC_pQTLs/seqid.txt" --GWASdir "/home/data/coloc_project/gwas_sumstats/breast_hg38.txt.gz" --pQTLdir "/home/data/coloc_project/ARIC_pQTLs/EA/" --CHR_input "CHR" --BP_input "BP" --A1_input "A1" --A2_input "A2" --BETA_input "BETA" --SE_input "SE" --outputdir "eQTL_results"`
 
-
+## Testing locuscompare.R 
+* `Rscript /home/project4/locuscompare.R --gwas /home/project4/ENSG00000116254/ENSG00000116254_gwascoloc --twas /home/project4/ENSG00000116254/ENSG00000116254_qtlcoloc --ref_dir /home/data/coloc_project/ref_data/ --gene_dir /home/project4/eQTL_results/ENSG00000116254/`
