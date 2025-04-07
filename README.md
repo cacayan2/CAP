@@ -12,6 +12,7 @@ This pipeline provides an intuitive approach to colocalization, capable of proce
   * optparse
   * locuscompareR
   * plink
+  * R.utils
 
 ## Description of Scripts 
 * preprocess.R
