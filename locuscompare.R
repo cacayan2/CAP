@@ -14,8 +14,7 @@ option_list <- list(
   make_option("--gene_dir", type = "character", help = "Directory containing the gene of interest"),
   make_option("--plink", type = "character", help = "Filepath where plink is installed"),
   make_option("--matchsnps", type = "character", help = "Filepath to the matchsnps data.table"),
-  make_option("--super_pop", type = "character", help = 'The identity of the superpopulation to pull LD values from'),
-  make_option("--phenotype", type = "character", help = "The complex phenotype of interest (does not have to match any file; just what you would refer to it as)")
+  make_option("--super_pop", type = "character", help = 'The identity of the superpopulation to pull LD values from')
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
@@ -27,7 +26,6 @@ ref.dir <- opt$ref_dir
 plink.dir <- opt$plink
 matchsnps <- readRDS(opt$matchsnps)
 super_pop <- opt$super_pop
-phen <- opt$phenotype
 gene.name <- basename(opt$gene_dir)
 
 if(!dir.exists(paste0(gene.dir, "mv_results/"))){
@@ -167,8 +165,6 @@ twassnps.df <- dplyr::select(matchbimsnps, c('RS', 'P.y'))
 
 colnames(gwassnps.df) <- c('rsid', 'pval'); colnames(twassnps.df) <- c('rsid', 'pval')
 
-locuscompare(in_fn1 = gwassnps.df, in_fn2 = twassnps.df, title1 = 'GWAS', title2 = 'eQTL', population = super_pop, genome = 'hg38')
-
 gwassnps.id <- read_metal(gwassnps.df, marker_col = 'rsid', pval_col = 'pval')
 twassnps.id <- read_metal(twassnps.df, marker_col = 'rsid', pval_col = 'pval')
 
@@ -177,21 +173,29 @@ lead.snp <- get_lead_snp(merged)
 snp.pos <- get_position(merged, 'hg38')
 
 leadsnp.loc <- dplyr::filter(snp.pos,rsid == lead.snp)
-paste0('Interpretation: If the causal genetic variant for higher rates of ', phen, ' and higher expressions of the gene ', gene.name, ' exists, then we would expect it to be exactly or linked with the SNP ', lead.snp, ', which is located on Chromosome ', leadsnp.loc$chr[1], ' at position ', leadsnp.loc$pos[1])
 
 sgwas = runsusie(gwassusiecoloc)
 
+gwas_cc.count <- length(sgwas$sets$cs)
+gwas.count <- sum(sapply(sgwas$sets$cs, length))
+
+
+setwd('/home/2025/cdotson/test')
 if(!is.null(sgwas$sets$cs)){
   stwas = runsusie(twassusiecoloc)
   }else{ 
     save.image(paste0(res.dir, gene.name, '_raw.RData'))
+    rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
+
+twas_cc.count <- length(stwas$sets$cs)
+twas.count <- sum(sapply(stwas$sets$cs, length))
 
 if(!is.null(stwas$sets$cs)){
   susie.res = coloc.susie(sgwas, stwas)
   save.image(paste0(res.dir, gene.name,'_raw.RData'))
+  rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 } else{
   save.image(paste0(res.dir, gene.name, '_raw.RData'))
+  rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
-
-rmarkdown::render('visualize.Rmd')
