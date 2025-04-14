@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-library(data.table)
-library(dplyr)
-library(coloc)
-library(hash)
-library(optparse)
-library(locuscomparer)
-=======
 invisible(library(data.table))
 invisible(library(dplyr))
 invisible(library(coloc))
@@ -13,7 +5,6 @@ invisible(library(hash))
 invisible(library(optparse))
 invisible(library(locuscomparer))
 invisible(library(stringr))
->>>>>>> 94edd2124a9aa97880de032e72d98d7970a5e85c
 
 # takes the binary files for the gwas and e/pqtl coloc objects as inputs for the Rscript #
 option_list <- list(
@@ -215,15 +206,3 @@ if(!is.null(stwas$sets$cs)){
   save.image(paste0(res.dir, gene.name, '_raw.RData'))
   rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
-<<<<<<< HEAD
-
-matchbimsnps.df <- as.data.frame(matchbimsnps)
-gwas.snps <- matchbimsnps.df[,c('ID','P.x')]
-colnames(gwas.snps) <- c('rsid', 'pval')
-
-eqtl.snps <- matchbimsnps.df[,c('ID','P.y')]
-colnames(eqtl.snps) <- c('rsid', 'pval')
-
-locuscompare(in_fn1 = gwas.snps, in_fn2 = eqtl.snps, title1 = 'eQTL', title2 = 'GWAS')
-=======
->>>>>>> 94edd2124a9aa97880de032e72d98d7970a5e85c
