@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-library(data.table)
-library(dplyr)
-library(coloc)
-library(hash)
-library(optparse)
-library(locuscomparer)
-=======
 invisible(library(data.table))
 invisible(library(dplyr))
 invisible(library(coloc))
@@ -13,7 +5,6 @@ invisible(library(hash))
 invisible(library(optparse))
 invisible(library(locuscomparer))
 invisible(library(stringr))
->>>>>>> 94edd2124a9aa97880de032e72d98d7970a5e85c
 
 # takes the binary files for the gwas and e/pqtl coloc objects as inputs for the Rscript #
 option_list <- list(
@@ -185,38 +176,33 @@ leadsnp.loc <- dplyr::filter(snp.pos,rsid == lead.snp)
 
 sgwas = runsusie(gwassusiecoloc)
 
-gwas_cc.count <- length(sgwas$sets$cs)
-gwas.count <- sum(sapply(sgwas$sets$cs, length))
-
-
 setwd('/home/2025/cdotson/test')
 if(!is.null(sgwas$sets$cs)){
+  gwas_cc.count <- length(sgwas$sets$cs)
+  gwas.count <- sum(sapply(sgwas$sets$cs, length))
   stwas = runsusie(twassusiecoloc)
-  }else{ 
+  }else{
+    gwas.count <- 0
+    gwas_cc.count <- 0
+    twas.count <- 0
+    twas_cc.count <- 0
     save.image(paste0(res.dir, gene.name, '_raw.RData'))
     rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
 
-twas_cc.count <- length(stwas$sets$cs)
-twas.count <- sum(sapply(stwas$sets$cs, length))
-
 if(!is.null(stwas$sets$cs)){
+  twas_cc.count <- length(stwas$sets$cs)
+  twas.count <- sum(sapply(stwas$sets$cs, length))
   susie.res = coloc.susie(sgwas, stwas)
+  susie.sum <- susie.res$summary
+  colnames(susie.sum) <- c('nSNPs', 'GWAS SNP', 'TWAS SNP', 'H0', 'H1', 'H2','H3', 'H4', 'GCS', 'TCS')
+  susie.sum <- as.data.frame(susie.sum)
+  susie.full <- susie.res$results
   save.image(paste0(res.dir, gene.name,'_raw.RData'))
   rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 } else{
+  twas.count <- 0
+  twas_cc.count <- 0
   save.image(paste0(res.dir, gene.name, '_raw.RData'))
   rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
-<<<<<<< HEAD
-
-matchbimsnps.df <- as.data.frame(matchbimsnps)
-gwas.snps <- matchbimsnps.df[,c('ID','P.x')]
-colnames(gwas.snps) <- c('rsid', 'pval')
-
-eqtl.snps <- matchbimsnps.df[,c('ID','P.y')]
-colnames(eqtl.snps) <- c('rsid', 'pval')
-
-locuscompare(in_fn1 = gwas.snps, in_fn2 = eqtl.snps, title1 = 'eQTL', title2 = 'GWAS')
-=======
->>>>>>> 94edd2124a9aa97880de032e72d98d7970a5e85c

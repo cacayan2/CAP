@@ -10,6 +10,7 @@ params:
 setwd('/home/2025/cdotson/test')
 load(params$rdata_path)
 library(locuscomparer)
+library(knitr)
 ```
 
 # `r gene.name`
@@ -27,3 +28,20 @@ There were `r gwas.count` SNP(s) across `r gwas_cc.count` credible set(s) detect
 
 ### SUSIE Run with TWAS Data 
 There were `r twas.count` SNP(s) across `r twas_cc.count` credible set(s) detected in the TWAS data. 
+
+```{r reject, echo=FALSE}
+if(gwas.count == 0 | twas.count == 0){
+  print('As SUSIE found 0 causal variants in the GWAS data and/or the TWAS data, we conclude that the two traits are not colocalized at a given SNP in this region.')
+}
+```
+
+## Coloc Analyses Using Both GWAS and TWAS Data
+```{r coloc viz, echo=FALSE, results='asis'}
+if(gwas.count != 0 & twas.count != 0){
+  print(knitr::kable(susie.sum, caption = 'coloc Summary Results', ))
+  sigrows = which(susie.res$summary$PP.H4.abf > 0.5)
+  for(i in sigrows){
+    sensitivity(susie.res,"H4 > 0.5",row=i,dataset1=gwassusiecoloc,dataset2=twassusiecoloc)
+  } } else{
+      print('No further analysis for this region and phenotype neccessary!')
+}
