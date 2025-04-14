@@ -1,0 +1,15 @@
+---
+title: "Visualization of coloc Results"
+output: html_document
+params: 
+  RData: ""
+---
+```{r include=FALSE}
+load(params$RData)
+library(locuscomparer)
+```
+
+```{r, echo = FALSE}
+locuscompare(in_fn1 = gwassnps.df, in_fn2 = twassnps.df, title1 = 'GWAS', title2 = 'eQTL', population = super_pop, genome = 'hg38')
+paste0('Interpretation: If the causal genetic variant for higher rates of ', phen, ' and higher expressions of the gene ', gene.name, ' exists, then we would expect it to be exactly or linked with the SNP ', lead.snp, ', which is located on Chromosome ', leadsnp.loc$chr[1], ' at position ', leadsnp.loc$pos[1])
+```
