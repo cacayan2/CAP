@@ -17,36 +17,61 @@ sva_QTL <- function(TWAS_folder, member) {
   sv.res <- coloc.abf(dataset1 = gwascoloc, dataset2 = qtlcoloc)
 }
 
+"%&%" <- function(a,b) paste(a,b,sep="")
+
 # Define command-line options.
 option_list <- list(
   make_option("--process", type = "character", default = "pqtl", help = "If using eqtl data, add process flag, otherwise pqtl is the default."),
   make_option("--superpop", type = "character", help = "The subpopulation to create LD matrix (generated from 1000 genomes project). See README.md for more options."),
-  make_option("--output", type = "character", help = "Output directory.")
+  make_option("--output", type = "character", help = "Output directory."),
+  make_option("--lddir", type = "character", help = "Directory for LD data."),
+  make_option("--lddownload", type = "character", help = "True/False whether or not LD data was downloaded using the pipeline.")
 )
 
 # Obtain command line arguments.
 opt <- parse_args(OptionParser(option_list = option_list))
 if(length(opt) != 4) {
-  print("Please pass an appropriate number of arguments to the command line.", quote = FALSE)
+  print("SVA: Please pass an appropriate number of arguments to the command line.", quote = FALSE)
   stop()
 }
 
 # Set folder for TWAS data. 
-TWAS_folder = paste0(getwd(), paste0("/", opt$output))
+TWAS_folder = string(getwd() %&% "/" %&% opt$output)
 
 
-message("Running coloc assuming single variant assumption...")
+message("SVA: Running coloc assuming single variant assumption...")
 # Running coloc using single variant assumption
 data_members <- list.dirs(TWAS_folder)
 data_members <- data_members[-1]
 for(member in data_members) {
-  member_name = str_replace(member, paste0(TWAS_folder, "/"), "")
+  member_name = str_replace(member %&% TWAS_folder %&% "/", "")
   if(length(list.files(member)) == 0) {
     message(paste0("SVA: The following result not processed - likely not an entry in QTL lists: ", member_name))
     next
   }
   current_sva <- sva_QTL(TWAS_folder, member)
-  saveRDS(current_sva, file = file.path(member, paste0(member_name, "_sva"))) 
+  saveRDS(current_sva, file = file.path(member, member_name %&% "_sva")) 
 }
 
-message("Setting up linkage disequilibrium data...")
+message("MVA: Processing LD data...")
+LD_folder <- ""
+if (opt$lddownload == "T" |
+    opt$lddownload == "t" |
+    opt$lddownload == "True" |
+    opt$lddownload == "true" |) {
+      LD_folder <- paste0(opt$output, "/1000g_vcfs")
+      command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", LD_folder), "ALL.chr*.vcf.gz
+tabix -p vcf all_phase3_combined.vcf.gz")
+      system(command_concat)
+      system("")
+  } else if (opt$lddownload == "F" |
+             opt$lddownload == "f" |
+             opt$lddownload == "False" |
+             opt$lddownload == 'false') {
+      ld_folder <- opt$output
+      command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", LD_folder), "ALL.chr*.vcf.gz
+tabix -p vcf all_phase3_combined.vcf.gz")
+      system(command_concat)
+
+  } 
+

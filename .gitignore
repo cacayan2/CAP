@@ -1,3 +1,6 @@
 coloc_project/
 processed/
 eQTL_results/
+test_folder/
+*.html
+*.pdf
