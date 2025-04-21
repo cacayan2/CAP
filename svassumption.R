@@ -56,7 +56,6 @@ for(member in data_members) {
 message("MVA: Processing LD data...")
 command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", arguments$lddir), "ALL.chr*.vcf.gz tabix -p vcf all_phase3_combined.vcf.gz")
 system(command_concat)
-system("plink2 --bfile " %&% LD_folder %&% "all_phase_3 --extract coloc-snplist --keep EUR_list --maf 0.01 --recode A --make-just-bim --out EUR_coloc-region --allow-extra-chr
-")
-  } 
+system("plink2 --bfile " %&% LD_folder %&% "all_phase_3 --extract coloc-snplist --keep" %&% arguments$superpop %&% "_list --maf 0.01 --recode A --make-just-bim --out" %&% arguments$superpop %&% "_coloc-region --allow-extra-chr")
+ 
 
