@@ -45,8 +45,8 @@ def checkLDdata(output_folder: str, ld: str):
             os.chdir(f"{output_folder}/1000g_vcfs")
             ld_ddir = f"{output_folder}/1000g_vcfs"
     else:
-        os.chdir(f"{output_folder}")
         ld_dir = f"{output_folder}"
+    os.chdir(current_wd)
 
     print("LD_SETUP: Downloading LD data if needed...")
     for x in range(1, 23):
@@ -58,6 +58,7 @@ def checkLDdata(output_folder: str, ld: str):
             os.system(f"wget -q --show-progress https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_g1k.ped")
     
     os.chdir(current_wd)
+    
     return 
 def main():
     arguments = check_arg(sys.argv[1:])
@@ -80,10 +81,10 @@ def main():
     
     if arguments.process == "eqtl":
         print("WRAPPER: Preprocessing eQTL data...")
-        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --eQTLdir {constants.data_dir} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
+        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --eQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
     else:
         print("WRAPPER: Preprocessing pQTL data...")
-        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --pQTLdir {constants.data_dir} --CHR__input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
+        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --pQTLdir {constants.data_dir()} --CHR__input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
     
     print("WRAPPER: Completed preprocessing! Generating LD data for multivariant assumption colocalization...")
     ld_dir = checkLDdata(arguments.output, arguments.ld)
