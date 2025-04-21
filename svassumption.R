@@ -54,24 +54,9 @@ for(member in data_members) {
 }
 
 message("MVA: Processing LD data...")
-LD_folder <- ""
-if (opt$lddownload == "T" |
-    opt$lddownload == "t" |
-    opt$lddownload == "True" |
-    opt$lddownload == "true" |) {
-      LD_folder <- paste0(opt$output, "/1000g_vcfs")
-      command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", LD_folder), "ALL.chr*.vcf.gz
-tabix -p vcf all_phase3_combined.vcf.gz")
-      system(command_concat)
-      system("")
-  } else if (opt$lddownload == "F" |
-             opt$lddownload == "f" |
-             opt$lddownload == "False" |
-             opt$lddownload == 'false') {
-      ld_folder <- opt$output
-      command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", LD_folder), "ALL.chr*.vcf.gz
-tabix -p vcf all_phase3_combined.vcf.gz")
-      system(command_concat)
-
+command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", arguments$lddir), "ALL.chr*.vcf.gz tabix -p vcf all_phase3_combined.vcf.gz")
+system(command_concat)
+system("plink2 --bfile " %&% LD_folder %&% "all_phase_3 --extract coloc-snplist --keep EUR_list --maf 0.01 --recode A --make-just-bim --out EUR_coloc-region --allow-extra-chr
+")
   } 
 
