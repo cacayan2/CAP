@@ -220,7 +220,7 @@ if (opt$process == "eqtl") {
     saveRDS(gwascoloc, file = file.path(parent_dir, target_gene, paste0(target_gene, "_gwascoloc")))
     saveRDS(pqtlcoloc, file = file.path(parent_dir, target_gene, paste0(target_gene, "_qtlcoloc")))
     
-    #save matchsnp data for LD downstream 
+    #save matchsnp data for LD downstream -- this is for LD analysis
     saveRDS(matchsnps, file = file.path(parent_dir, target_gene, paste0(target_gene, "_matchsnps")))
     
     
