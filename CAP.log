@@ -1,4 +1,6 @@
----Colocalization Automation Pipeline Log File---
+---Colocalization Automation Pipeline Log File---Loading required package: data.table
+Loading required package: dplyr
+
 Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:data.table’:
@@ -13,7 +15,9 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
+Loading required package: coloc
 This is coloc version 5.2.3
+Loading required package: hash
 hash-2.2.6.3 provided by Decision Patterns
 
 
@@ -23,6 +27,8 @@ The following object is masked from ‘package:data.table’:
 
     copy
 
+Loading required package: optparse
+Loading required package: R.utils
 Loading required package: R.oo
 Loading required package: R.methodsS3
 R.methodsS3 v1.8.2 (2022-06-13 22:00:14 UTC) successfully loaded. See ?R.methodsS3 for help.
@@ -52,6 +58,11 @@ The following object is masked from ‘package:utils’:
 
 The following objects are masked from ‘package:base’:
 
-    cat, commandArgs, getOption, isOpen, nullfile, parse, use, warnings
+    cat, commandArgs, getOption, isOpen, nullfile, parse, warnings
 
-Avoidable 11.925 seconds. This file is very unusual: it ends abruptly without a final newline, and also its size is a multiple of 4096 bytes. Please properly end the last row with a newline using for example 'echo >> file' to avoid this  time to copy.
+Loading required package: stringr
+Obtaining command line arguments...
+Reading in genes of intrest...
+Reading in data...
+Skipping gene NotAGene as it is not found in seqID mapping
+Skipping gene NotAGene2 as it is not found in seqID mapping

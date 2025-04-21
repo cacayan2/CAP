@@ -1,6 +1,3 @@
-
-
-# Loading appropriate libraries. 
 suppressPackageStartupMessages(invisible(library(data.table)))
 suppressPackageStartupMessages(invisible(library(dplyr)))
 suppressPackageStartupMessages(invisible(library(coloc)))
@@ -8,7 +5,6 @@ suppressPackageStartupMessages(invisible(library(hash)))
 suppressPackageStartupMessages(invisible(library(optparse)))
 suppressPackageStartupMessages(invisible(library(R.utils)))
 suppressPackageStartupMessages(invisible(library(stringr)))
-suppressPackageStartupMessages(invisible(library(hash)))
 
 sva_QTL <- function(TWAS_folder, member) {
   gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
@@ -25,26 +21,24 @@ option_list <- list(
   make_option("--superpop", type = "character", help = "The subpopulation to create LD matrix (generated from 1000 genomes project). See README.md for more options."),
   make_option("--output", type = "character", help = "Output directory."),
   make_option("--lddir", type = "character", help = "Directory for LD data."),
-  make_option("--lddownload", type = "character", help = "True/False whether or not LD data was downloaded using the pipeline.")
+  make_option("--lddownload", type = "character", help = "True/False whether or not LD data was downloaded using the pipeline."),
+  make_option("--threads", type = "character", default = "2", help = "Number of threads to use.")
 )
 
 # Obtain command line arguments.
 opt <- parse_args(OptionParser(option_list = option_list))
-if(length(opt) != 4) {
-  print("SVA: Please pass an appropriate number of arguments to the command line.", quote = FALSE)
-  stop()
-}
+LD_folder = opt$lddir
+LD_output = "LD_output/"
 
 # Set folder for TWAS data. 
-TWAS_folder = string(getwd() %&% "/" %&% opt$output)
+TWAS_folder = getwd() %&% "/" %&% opt$output
 
-
-message("SVA: Running coloc assuming single variant assumption...")
 # Running coloc using single variant assumption
 data_members <- list.dirs(TWAS_folder)
 data_members <- data_members[-1]
 for(member in data_members) {
-  member_name = str_replace(member %&% TWAS_folder %&% "/", "")
+  member_name = str_replace(member, TWAS_folder %&% "/", "")
+  if(member_name  == "1000g_vcfs") {next}
   if(length(list.files(member)) == 0) {
     message(paste0("SVA: The following result not processed - likely not an entry in QTL lists: ", member_name))
     next
@@ -53,9 +47,171 @@ for(member in data_members) {
   saveRDS(current_sva, file = file.path(member, member_name %&% "_sva")) 
 }
 
-message("MVA: Processing LD data...")
-command_concat <- paste0(paste0("bcftools concat -Oz -o all_phase3_combined.vcf.gz", arguments$lddir), "ALL.chr*.vcf.gz tabix -p vcf all_phase3_combined.vcf.gz")
-system(command_concat)
-system("plink2 --bfile " %&% LD_folder %&% "all_phase_3 --extract coloc-snplist --keep" %&% arguments$superpop %&% "_list --maf 0.01 --recode A --make-just-bim --out" %&% arguments$superpop %&% "_coloc-region --allow-extra-chr")
- 
+if (!file.exists(LD_folder)) {
+  system("mkdir " %&% LD_folder %&% "1000g_combined")
+}
 
+if (!file.exists(LD_output)) {
+  system("mkdir" %&% LD_output)
+  command_concat <- "bcftools concat -Oz --threads " %&% opt$threads %&% " -o " %&% LD_output %&% "1000g_combined/all_phase3_combined.vcf.gz " %&% LD_folder %&% "ALL.chr*.vcf.gz"
+  system(command_concat)
+  command_tabix <- "tabix -p vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz"
+  system(command_tabix)
+  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz --make-pgen --out " %&% LD_output %&% "all_chr --threads " %&% opt$threads)
+}
+
+pops <- fread(LD_output %&% "all_chr.psam")
+superpop <- filter(pops, SuperPop == opt$superpop)
+
+superpoplist <- mutate(superpop, FID=0.) %>% select(FID, '#IID')
+fwrite(superpoplist, paste0(LD_output, "superpop_list"), col.names = FALSE, sep = "\t")
+
+if(opt$process == "pqtl") {
+  for (member in data_members) {
+    gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
+    qtlcoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc")))
+    fwrite(data.frame(qtlcoloc$snp), file = file.path(member, "coloc-snplist"), col.names = FALSE)
+    system("plink --bfile " %&% LD_output %&% "all_phase3 --extract " %&% member %&% "coloc-snplist --keep" %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out " %&% member %&% "superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
+    geno <- fread(member %&% "superpop_coloc-region.raw")
+    genomat <- as.matrix(geno[,7:length(geno)])
+    snplist <- colnames(genomat)
+    snplist <- substr(snplist, 1, nchar(snplist)-2)
+    colnames(genomat) <- snplist
+    bim <- fread(member %&% "superpop_coloc-region.bim")
+    
+    joined <- inner_join(gwascoloc, qtlcoloc, by = c("ID" = "RS"))
+
+    bases = hash()
+    bases[["A"]] <- "T"
+    bases[["C"]] <- "G"
+    bases[["G"]] <- "C"
+    bases[["T"]] <- "A"
+    
+    match <- joined[(joined$A1.x==joined$A1.y & joined$REF == joined$A2),]
+
+    a <- joined[!(joined$REF=="A" & joined$ALT=="T") & !(joined$REF=="T" & joined$ALT=="A") & !(joined$REF=="C" & joined$ALT=="G") &
+                 !(joined$REF=="G" & joined$ALT=="C") ]
+
+    compmatch <- a[(a$A1.x==values(bases,keys=a$A1.y) & a$REF == values(bases,keys=a$A2)),]
+    flipped <- a[(a$A1.x==a$A2 & a$REF == a$A1.y),]
+    compflipped <- a[(a$A1.x==values(bases,keys=a$A2) & a$REF == values(bases,keys=a$A1.y)),]
+
+    if(dim(flipped)[1] > 0){
+      flipped = mutate(flipped,BETA.y = -1*BETA.y)
+    }
+    if(dim(compflipped)[1] > 0){
+      compflipped = mutate(compflipped,BETA.y = -1*BETA.y)
+    }
+    matchsnps = rbind(match, compmatch, flipped, compflipped) %>% arrange(chr_pos)
+    
+    susiesnpsbim <- inner_join(matchsnps, bim, by = c("ID" = "V2"))
+    
+    matchbim <- susiesnpsbim[(susiesnpsbim$A1.x==susiesnpsbim$V5 & susiesnpsbim$REF == susiesnpsbim$V6),]
+
+    b <- susiesnpsbim[!(susiesnpsbim$REF=="A" & susiesnpsbim$ALT=="T") & !(susiesnpsbim$REF=="T" & susiesnpsbim$ALT=="A") & !(susiesnpsbim$REF=="C" & susiesnpsbim$ALT=="G") &
+                        !(susiesnpsbim$REF=="G" & susiesnpsbim$ALT=="C") ]
+
+    compmatchbim <- b[(b$A1.x==values(bases,keys=b$V5) & b$REF == values(bases,keys=b$V6)),]
+    flippedbim <- b[(b$A1.x==b$V6 & b$REF == b$V5),]
+    compflippedbim <- b[(b$A1.x==values(bases,keys=b$V6) & b$REF == values(bases,keys=b$V5)),]
+
+    if(dim(flippedbim)[1] > 0){
+      flippedbim <- mutate(flippedbim,BETA.x = -1*BETA.x,BETA.y = -1*BETA.y)
+    }
+    if(dim(compflippedbim)[1] > 0){
+      compflippedbim <- mutate(compflippedbim,BETA.x = -1*BETA.x,BETA.y = -1*BETA.y)
+    }
+
+    matchbimsnps <- rbind(matchbim, compmatchbim, flippedbim, compflippedbim) %>% arrange(POS)
+
+    snplist <- matchbimsnps$ID
+
+    x <- genomat[,colnames(genomat) %in% snplist]
+    R <- cor(x)
+
+    susiesnps <- filter(matchbimsnps, ID %in% snplist)
+    gwascolocsusie <- list("beta" = susiesnps$BETA.y, "varbeta" = (susiesnps$SE.y)^2, "snp" = susiesnps$ID, "position" = susiesnps$POS, "type" = "cc", "LD" = R, "N" = 100000)
+    qtlcolocsusie <- list("beta" = setNames(susiesnps$BETA.x, susiesnps$ID), "varbeta" = (susiesnps$SE.x)^2, "snp" = susiesnps$ID, "position" = susiesnps$POS, "type" = "quant", "N" = susiesnps$OBS_CT[1], "MAF" = susiesnps$A1_FREQ, "sdY"=1, LD = R)
+    saveRDS(gwascolocsusie, file = file.path(parent_dir, target_gene, paste0(target_gene, "_gwascolocsusie")))
+    saveRDS(qtlcolocsusie, file = file.path(parent_dir, target_gene, paste0(target_gene, "_qtlcolocsusie")))
+    saveRDS(R, file = file.path(parent_dir, target_gene, paste0(target_gene, "_LDcorr")))
+  } 
+} else {
+  for (member in data_members) {
+    gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
+    qtlcoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc")))
+    fwrite(data.frame(qtlcoloc$snp), file = file.path(member, "coloc-snplist"), col.names = FALSE)
+    bcf_command = "bcftools query -f '%CHROM\t%pos\t%ID\n' -R " %&% member %&% "coloc-snplist" %&% LD_output %&% "all_phase3_combined.vcf.gz > "%&% member %&%"snp_pos_to_rsid.tsv"
+    system(bcf_command)
+    eqtl <- fread(member %&%"snp_pos_to_rsid.tsv")
+    snpmap <- fread(member %&%"snp_pos_to_rsid.tsv", col.names = c("CHR", "POS", "rsid"))
+    eqtl_mapped <- inner_join("snp_pos_to_rsid.tsv", snpmap, by=("CHR", "POS"))
+    fwrite(data.frame(eqtl_mapped$rsid), file = file.path(member, "coloc-snplist"), col.names = FALSE)
+    system("plink --bfile " %&% LD_output %&% "all_phase3 --extract " %&% member %&% "coloc-snplist --keep" %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out " %&% member %&% "superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
+    geno <- fread(member %&% "superpop_coloc-region.raw")
+    genomat <- as.matrix(geno[,7:length(geno)])
+    snplist <- colnames(genomat)
+    snplist <- substr(snplist, 1, nchar(snplist)-2)
+    colnames(genomat) <- snplist
+    bim <- fread(member %&% "superpop_coloc-region.bim")
+    
+    joined <- inner_join(gwascoloc, qtlcoloc, by = c("ID" = "RS"))
+
+    bases = hash()
+    bases[["A"]] <- "T"
+    bases[["C"]] <- "G"
+    bases[["G"]] <- "C"
+    bases[["T"]] <- "A"
+    
+    match <- joined[(joined$A1.x==joined$A1.y & joined$REF == joined$A2),]
+
+    a <- joined[!(joined$REF=="A" & joined$ALT=="T") & !(joined$REF=="T" & joined$ALT=="A") & !(joined$REF=="C" & joined$ALT=="G") &
+                 !(joined$REF=="G" & joined$ALT=="C") ]
+
+    compmatch <- a[(a$A1.x==values(bases,keys=a$A1.y) & a$REF == values(bases,keys=a$A2)),]
+    flipped <- a[(a$A1.x==a$A2 & a$REF == a$A1.y),]
+    compflipped <- a[(a$A1.x==values(bases,keys=a$A2) & a$REF == values(bases,keys=a$A1.y)),]
+
+    if(dim(flipped)[1] > 0){
+      flipped = mutate(flipped,BETA.y = -1*BETA.y)
+    }
+    if(dim(compflipped)[1] > 0){
+      compflipped = mutate(compflipped,BETA.y = -1*BETA.y)
+    }
+    matchsnps = rbind(match, compmatch, flipped, compflipped) %>% arrange(chr_pos)
+    
+    susiesnpsbim <- inner_join(matchsnps, bim, by = c("ID" = "V2"))
+    
+    matchbim <- susiesnpsbim[(susiesnpsbim$A1.x==susiesnpsbim$V5 & susiesnpsbim$REF == susiesnpsbim$V6),]
+
+    b <- susiesnpsbim[!(susiesnpsbim$REF=="A" & susiesnpsbim$ALT=="T") & !(susiesnpsbim$REF=="T" & susiesnpsbim$ALT=="A") & !(susiesnpsbim$REF=="C" & susiesnpsbim$ALT=="G") &
+                        !(susiesnpsbim$REF=="G" & susiesnpsbim$ALT=="C") ]
+
+    compmatchbim <- b[(b$A1.x==values(bases,keys=b$V5) & b$REF == values(bases,keys=b$V6)),]
+    flippedbim <- b[(b$A1.x==b$V6 & b$REF == b$V5),]
+    compflippedbim <- b[(b$A1.x==values(bases,keys=b$V6) & b$REF == values(bases,keys=b$V5)),]
+
+    if(dim(flippedbim)[1] > 0){
+      flippedbim <- mutate(flippedbim,BETA.x = -1*BETA.x,BETA.y = -1*BETA.y)
+    }
+    if(dim(compflippedbim)[1] > 0){
+      compflippedbim <- mutate(compflippedbim,BETA.x = -1*BETA.x,BETA.y = -1*BETA.y)
+    }
+
+    matchbimsnps <- rbind(matchbim, compmatchbim, flippedbim, compflippedbim) %>% arrange(POS)
+
+    snplist <- matchbimsnps$ID
+
+    x <- genomat[,colnames(genomat) %in% snplist]
+    R <- cor(x)
+
+    susiesnps <- filter(matchbimsnps, ID %in% snplist)
+    gwascolocsusie <- list("beta" = susiesnps$BETA.y, "varbeta" = (susiesnps$SE.y)^2, "snp" = susiesnps$ID, "position" = susiesnps$POS, "type" = "cc", "LD" = R, "N" = 100000)
+    qtlcolocsusie <- list("beta" = setNames(susiesnps$BETA.x, susiesnps$ID), "varbeta" = (susiesnps$SE.x)^2, "snp" = susiesnps$ID, "position" = susiesnps$POS, "type" = "quant", "N" = susiesnps$OBS_CT[1], "MAF" = susiesnps$A1_FREQ, "sdY"=1, LD = R)
+    saveRDS(gwascolocsusie, file = file.path(parent_dir, target_gene, paste0(target_gene, "_gwascolocsusie")))
+    saveRDS(qtlcolocsusie, file = file.path(parent_dir, target_gene, paste0(target_gene, "_qtlcolocsusie")))
+    saveRDS(R, file = file.path(parent_dir, target_gene, paste0(target_gene, "_LDcorr")))
+  }
+}
+
+pops <- fread(LD_output %&% "")

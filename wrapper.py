@@ -23,6 +23,8 @@ def check_arg(args=None):
     help="Name of superpopulation to pull LD data from", required=True)
     parser.add_argument("-l", "--ld",default="True",
     help="Download LD data from the internet", required=True)
+    parser.add_argument("-c", "--threads", default="2",
+    help="Number of threads to use", required=True)
     return parser.parse_args(args)
 
 def sanity_check(process, test, superpop, ld):
@@ -40,13 +42,14 @@ def checkLDdata(output_folder: str, ld: str):
     ld_dir = ""
     if ld == "True" or ld == "true" or ld == "T" or ld == "t":
         print("LD_SETUP: Creating directory for LD data...")
-        if not os.path.isdir(f"{output_folder}/1000g_vcfs"):
-            os.mkdir(f"{output_folder}/1000g_vcfs")
-            os.chdir(f"{output_folder}/1000g_vcfs")
-            ld_ddir = f"{output_folder}/1000g_vcfs"
+        if not os.path.isdir(f"1000g_vcfs"):
+            os.mkdir(f"1000g_vcfs")
+            os.chdir(f"1000g_vcfs")
+            ld_dir = f"1000g_vcfs"
     else:
         ld_dir = f"{output_folder}"
     os.chdir(current_wd)
+    os.chdir(ld_dir)
 
     print("LD_SETUP: Downloading LD data if needed...")
     for x in range(1, 23):
@@ -54,8 +57,6 @@ def checkLDdata(output_folder: str, ld: str):
             os.system(f"wget -q --show-progress https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz")
         if not os.path.isfile(f"ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz.tbi"):
             os.system(f"wget -q --show-progress https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz.tbi")
-        if not os.path.isfile(f"20130606_g1k.ped"):
-            os.system(f"wget -q --show-progress https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_g1k.ped")
     
     os.chdir(current_wd)
     
@@ -81,16 +82,20 @@ def main():
     
     if arguments.process == "eqtl":
         print("WRAPPER: Preprocessing eQTL data...")
-        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --eQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
+        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --GWASdir {constants.GWASdir()} --eQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
     else:
         print("WRAPPER: Preprocessing pQTL data...")
-        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --pQTLdir {constants.data_dir()} --CHR__input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
+        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --pQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
     
     print("WRAPPER: Completed preprocessing! Generating LD data for multivariant assumption colocalization...")
-    ld_dir = checkLDdata(arguments.output, arguments.ld)
+    
+    if(arguments.ld == "True" or arguments.ld == "true" or arguments.ld == "T" or arguments.ld == "t"):
+        ld_dir = checkLDdata(arguments.output, arguments.ld)
+    else:
+        ld_dir = checkLDdata(arguments.ld_dir, arguments.ld)
     
     print("WRAPPER: Downloaded LD data! Starting single variant assumption analysis and LD data processing...")
-    os.system(f"Rscript svassumption.R --process {arguments.process} --superpop {arguments.superpop} --output {arguments.output} --lddir {ld_dir} --lddownload {arguments.ld} >> CAP.log 2>&1")
+    os.system(f"Rscript svassumption.R --process {arguments.process} --superpop {arguments.superpop} --output {arguments.output} --lddir {ld_dir} --lddownload {arguments.ld} --threads {arguments.threads} >> CAP.log 2>&1")
 
 
 if __name__ == "__main__":
