@@ -9,7 +9,7 @@
 	* **[Input Specifications](#input-specifications)**
 		* **[Specifications for Gene Input Data](#specifications-for-gene-input-data)**
 		* **[Linkage Disequilibrium Data](#linkage-disequilibrium-data)**
-	* **[The `config.ini` File](#the-config.ini-file)**
+	* **[The `config.ini` File](#the-config-ini-file)**
 	* **[Command Arguments](#command-arguments)**
 * **[References](#references)**
 
@@ -42,7 +42,7 @@ In addition to this software, the following `R` packages are utilized (which are
 
 #### Input Specifications
 ##### Specifications for Gene Input Data
-As mentioned, this pipeline accepts ARIC-formatted pQTLs or GTEx-formatted eQTLs and GWAS summary statistics to perform colocalization. Due to the lack of a consensus in the format of GWAS, eQTL, and pQTL data, we ask that the following information be included in GWAS, eQTL, and pQTL data with well-defined column names, entered in the [`config.ini`](#the-config.ini-file) file:
+As mentioned, this pipeline accepts ARIC-formatted pQTLs or GTEx-formatted eQTLs and GWAS summary statistics to perform colocalization. Due to the lack of a consensus in the format of GWAS, eQTL, and pQTL data, we ask that the following information be included in GWAS, eQTL, and pQTL data with well-defined column names, entered in the [`config.ini`](#the-config-ini-file) file:
 
 * Chromosome number
 * Base pair position
@@ -94,7 +94,7 @@ done
 wget -c https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt
 ```
 
-Save these to a directory and specify the directory in the [`config.ini`](#the-config.ini-file) under the `LD_dir` section. When running the `wrapper.py` script, please specify the flag `-l/--lddownload` as false, otherwise the directory in the `config.ini` file will be disregarded. The pipeline will verify that all files are present in the directory (not if they have been corrupted or are incomplete). 
+Save these to a directory and specify the directory in the [`config.ini`](#the-config-ini-file) under the `LD_dir` section. When running the `wrapper.py` script, please specify the flag `-l/--lddownload` as false, otherwise the directory in the `config.ini` file will be disregarded. The pipeline will verify that all files are present in the directory (not if they have been corrupted or are incomplete). 
 
 Otherwise, to make the pipeline download the data, simply run with the `-l/--lddownload` flag as true,  and a directory containing the data will be created for you in a directory called `1000g_vcfs`. If the folder is created and is complete, the pipeline will not download the data again and skip to processing.
 
