@@ -18,7 +18,7 @@ library(knitr)
 ## locuscompareR Preliminary Analysis
 
 ```{r print, echo = FALSE, warning=FALSE,message=FALSE,error=FALSE}
-locuscompare(in_fn1 = gwassnps.df, in_fn2 = twassnps.df, title1 = 'GWAS', title2 = 'eQTL', population = super_pop, genome = 'hg38')
+locuscompare(in_fn1 = gwassnps.df, in_fn2 = twassnps.df, title1 = 'GWAS', title2 = 'eQTL', genome = 'hg38')
 ```
 
 Interpretation: If the causal genetic variant for higher rates of the two traits can be detected, then we would expect it to be exactly or linked with the SNP `r lead.snp`, which is located on Chromosome `r leadsnp.loc$chr[1]` at position `r leadsnp.loc$pos[1]`
