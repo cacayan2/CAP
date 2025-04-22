@@ -5,6 +5,7 @@ invisible(library(hash))
 invisible(library(optparse))
 invisible(library(locuscomparer))
 invisible(library(stringr))
+invisible(library(cgwtools))
 
 # takes the binary files for the gwas and e/pqtl coloc objects as inputs for the Rscript #
 option_list <- list(
@@ -160,8 +161,13 @@ check_dataset(gwassusiecoloc,req="LD")
 rownames(twassusiecoloc$LD) = twassusiecoloc$snp; colnames(twassusiecoloc$LD) = twassusiecoloc$snp
 check_dataset(twassusiecoloc,req="LD")
 
-gwassnps.df <- dplyr::select(matchbimsnps, c('RS', 'P.x')) 
+save(gwassusiecoloc,twassusiecoloc, file = paste0(res.dir, gene.name, '_mv.RData'))
+r.obj <- paste0(res.dir, gene.name, '_mv.RData')
+
+gwassnps.df <- dplyr::select(matchbimsnps, c('RS', 'P.x'))
+resave(gwassnps.df, file = r.obj)
 twassnps.df <- dplyr::select(matchbimsnps, c('RS', 'P.y'))
+resave(twassnps.df, file = r.obj)
 
 colnames(gwassnps.df) <- c('rsid', 'pval'); colnames(twassnps.df) <- c('rsid', 'pval')
 
@@ -169,40 +175,56 @@ gwassnps.id <- read_metal(gwassnps.df, marker_col = 'rsid', pval_col = 'pval')
 twassnps.id <- read_metal(twassnps.df, marker_col = 'rsid', pval_col = 'pval')
 
 merged <- merge(gwassnps.id, twassnps.id, by = 'rsid', suffixes = c('1','2'), all = FALSE)
+
 lead.snp <- get_lead_snp(merged)
+resave(lead.snp, file = r.obj)
+
 snp.pos <- get_position(merged, 'hg38')
 
 leadsnp.loc <- dplyr::filter(snp.pos,rsid == lead.snp)
+resave(leadsnp.loc, file = r.obj)
 
 sgwas = runsusie(gwassusiecoloc)
+resave(sgwas, file = r.obj)
 
 setwd('/home/2025/cdotson/test')
 if(!is.null(sgwas$sets$cs)){
   gwas_cc.count <- length(sgwas$sets$cs)
+  resave(gwas_cc.count, file = r.obj)
   gwas.count <- sum(sapply(sgwas$sets$cs, length))
+  resave(gwas.count, file = r.obj)
   stwas = runsusie(twassusiecoloc)
+  resave(stwas, file = r.obj)
   }else{
     gwas.count <- 0
+    resave(gwas.count, file = r.obj)
     gwas_cc.count <- 0
+    resave(gwas_cc.count, file = r.obj)
     twas.count <- 0
+    resave(twas.count, file = r.obj)
     twas_cc.count <- 0
-    save.image(paste0(res.dir, gene.name, '_raw.RData'))
-    rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
+    resave(twas_cc.count, file = r.obj)
+    rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData", sv_path = paste0())), output_file = paste0(gene.name, "_coloc.html"))
 }
 
 if(!is.null(stwas$sets$cs)){
   twas_cc.count <- length(stwas$sets$cs)
+  resave(twas_cc.count, file = r.obj)
   twas.count <- sum(sapply(stwas$sets$cs, length))
+  resave(twas.count, file = r.obj)
   susie.res = coloc.susie(sgwas, stwas)
+  resave(susie.res, file = r.obj)
   susie.sum <- susie.res$summary
   colnames(susie.sum) <- c('nSNPs', 'GWAS SNP', 'TWAS SNP', 'H0', 'H1', 'H2','H3', 'H4', 'GCS', 'TCS')
   susie.sum <- as.data.frame(susie.sum)
+  resave(susie.sum, file = r.obj)
   susie.full <- susie.res$results
-  save.image(paste0(res.dir, gene.name,'_raw.RData'))
+  fwrite(susie.full, file = paste0(res.dir, gene.name, '_susie.txt'))
   rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 } else{
   twas.count <- 0
+  resave(twas.count, file = r.obj)
   twas_cc.count <- 0
-  save.image(paste0(res.dir, gene.name, '_raw.RData'))
+  resave(twas_cc.count, file = r.obj)
   rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
