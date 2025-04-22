@@ -7,3 +7,4 @@ test_folder/
 1000g_vcfs/
 pQTL_results/
 *.log
+LD_output/

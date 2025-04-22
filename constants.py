@@ -25,6 +25,7 @@ class Constants:
         self._A2_INPUT = self._config.get("A2_input", "A2_input")
         self._BETA_INPUT = self._config.get("BETA_input", "BETA_input")
         self._SE_INPUT = self._config.get("SE_input", "SE_input")
+        self._LD_DIR = self._config.get("LD_dir", "LD_dir")
         
     # A bunch of getters for the different constants. 
     def genes(self): return self._GENES
@@ -37,3 +38,4 @@ class Constants:
     def A2_input(self): return self._A2_INPUT
     def BETA_input(self): return self._BETA_INPUT
     def SE_input(self): return self._SE_INPUT
+    def LD_dir(self): return self._LD_DIR

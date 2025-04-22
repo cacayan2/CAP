@@ -20,6 +20,7 @@ option_list <- list(
   make_option("--process", type = "character", default = "pqtl", help = "If using eqtl data, add process flag, otherwise pqtl is the default."),
   make_option("--superpop", type = "character", help = "The subpopulation to create LD matrix (generated from 1000 genomes project). See README.md for more options."),
   make_option("--output", type = "character", help = "Output directory."),
+  make_option("--data", type = "character", help = "Directory where data for gwas and eqtl from preprocessing is stored."),
   make_option("--lddir", type = "character", help = "Directory for LD data."),
   make_option("--lddownload", type = "character", help = "True/False whether or not LD data was downloaded using the pipeline."),
   make_option("--threads", type = "character", default = "2", help = "Number of threads to use.")
@@ -31,14 +32,16 @@ LD_folder = opt$lddir
 LD_output = "LD_output/"
 
 # Set folder for TWAS data. 
-TWAS_folder = getwd() %&% "/" %&% opt$output
+TWAS_folder = getwd() %&% "/" %&% opt$data
 
 # Running coloc using single variant assumption
 data_members <- list.dirs(TWAS_folder)
 data_members <- data_members[-1]
+print(data_members)
+
+data_members <- data_members[-1]
 for(member in data_members) {
   member_name = str_replace(member, TWAS_folder %&% "/", "")
-  if(member_name  == "1000g_vcfs") {next}
   if(length(list.files(member)) == 0) {
     message(paste0("SVA: The following result not processed - likely not an entry in QTL lists: ", member_name))
     next
@@ -47,31 +50,54 @@ for(member in data_members) {
   saveRDS(current_sva, file = file.path(member, member_name %&% "_sva")) 
 }
 
-if (!file.exists(LD_folder)) {
-  system("mkdir " %&% LD_folder %&% "1000g_combined")
+if (!file.exists(LD_output)) {
+  dir.create(LD_output)
+  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz --make-bed --out " %&% LD_output %&% "all_chr --threads " %&% opt$threads)
 }
 
-if (!file.exists(LD_output)) {
-  system("mkdir" %&% LD_output)
-  command_concat <- "bcftools concat -Oz --threads " %&% opt$threads %&% " -o " %&% LD_output %&% "1000g_combined/all_phase3_combined.vcf.gz " %&% LD_folder %&% "ALL.chr*.vcf.gz"
-  system(command_concat)
-  command_tabix <- "tabix -p vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz"
-  system(command_tabix)
-  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz --make-pgen --out " %&% LD_output %&% "all_chr --threads " %&% opt$threads)
+if (!file.exists(LD_output %&% "all_phase3_combined.vcf.gz")) {
+  system("bcftools concat -Oz --threads " %&% opt$threads %&% " -o " %&% LD_output %&% "all_phase3_combined.vcf.gz " %&% LD_folder %&% "ALL.chr*.vcf.gz")
 }
+
+if (!file.exists(LD_output %&% "all_chr.bim") | !file.exists(LD_output %&% "all_chr.fam") | !file.exists(LD_output %&% "all_chr.bed")) {
+  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz --max-alleles 2 --maf 0.01 --make-bed --out " %&% LD_output %&% "all_chr --threads " %&% opt$threads)
+}
+
+sample_info <- fread(LD_folder %&% "20130606_sample_info.txt")
+
+sample_info <- sample_info %>% 
+  mutate(
+    FID = 0, 
+    IID = Sample, 
+    PAT = 0, 
+    MAT = 0,
+    SEX = case_when(
+      Gender == "male" ~ 1,
+      Gender == "female" ~ 2,
+      TRUE ~ 0
+    ),
+    SuperPop = Population,
+    PHENOTYPE = -9
+  ) %>%
+  select(FID, IID, PAT, MAT, SEX, SuperPop, PHENOTYPE)
+fwrite(sample_info, LD_output %&% "all_chr.psam", col.names = TRUE, sep = "\t")
 
 pops <- fread(LD_output %&% "all_chr.psam")
 superpop <- filter(pops, SuperPop == opt$superpop)
 
-superpoplist <- mutate(superpop, FID=0.) %>% select(FID, '#IID')
+superpoplist <- mutate(superpop, FID=0) %>% select(FID, `IID`)
 fwrite(superpoplist, paste0(LD_output, "superpop_list"), col.names = FALSE, sep = "\t")
 
 if(opt$process == "pqtl") {
   for (member in data_members) {
+    if(length(list.files(member)) == 0) {
+    next
+    }
     gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
     qtlcoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc")))
     fwrite(data.frame(qtlcoloc$snp), file = file.path(member, "coloc-snplist"), col.names = FALSE)
-    system("plink --bfile " %&% LD_output %&% "all_phase3 --extract " %&% member %&% "coloc-snplist --keep" %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out " %&% member %&% "superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
+    print("plink2 --bfile " %&% LD_output %&% "all_chr --extract " %&% member %&% "coloc-snplist --keep" %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out"  %&% member %&% "/superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
+    system("plink2 --bfile " %&% LD_output %&% "all_chr --extract " %&% member %&% "coloc-snplist --keep " %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out \""  %&% member %&% "/superpop_coloc-region\" --allow-extra-chr --threads " %&% opt$threads)
     geno <- fread(member %&% "superpop_coloc-region.raw")
     genomat <- as.matrix(geno[,7:length(geno)])
     snplist <- colnames(genomat)
@@ -145,7 +171,7 @@ if(opt$process == "pqtl") {
     system(bcf_command)
     eqtl <- fread(member %&%"snp_pos_to_rsid.tsv")
     snpmap <- fread(member %&%"snp_pos_to_rsid.tsv", col.names = c("CHR", "POS", "rsid"))
-    eqtl_mapped <- inner_join("snp_pos_to_rsid.tsv", snpmap, by=("CHR", "POS"))
+    eqtl_mapped <- inner_join("snp_pos_to_rsid.tsv", snpmap, by=c("CHR", "POS"))
     fwrite(data.frame(eqtl_mapped$rsid), file = file.path(member, "coloc-snplist"), col.names = FALSE)
     system("plink --bfile " %&% LD_output %&% "all_phase3 --extract " %&% member %&% "coloc-snplist --keep" %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out " %&% member %&% "superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
     geno <- fread(member %&% "superpop_coloc-region.raw")
