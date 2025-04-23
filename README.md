@@ -65,7 +65,7 @@ In order to select regions of interest, the pipeline requires a list of genes to
 
 ##### The `config.ini` File
 To reduce the verboseness of running the pipeline, a `config.ini` file is included in the repository. This file stores user-specified information for directories and preferences for the pipeline. Each section has the following keys which must be assigned values as followed:
-* **`genes`**: Path to where the list of genes of interest is located. For specific formatting instructions, refer to the [Specifications for Gene Input Data](#specifications-for-gene-input-data) section.
+* **`genes`**: Path to where the list of genes of interest is located. For specific formatting instructions, refer to the section above.
 * **`seqIDdir`**: File path for the ARIC pQTLs `seqid.txt` file. Only needed if using pQTL data.
 * **`data_dir`**: Directory where either eQTL or pQTL data is stored. 
 * **`CHR_input`**: The column name in the GWAS summary statistics for chromosome number.
