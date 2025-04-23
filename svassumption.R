@@ -5,7 +5,10 @@ suppressPackageStartupMessages(invisible(library(hash)))
 suppressPackageStartupMessages(invisible(library(optparse)))
 suppressPackageStartupMessages(invisible(library(R.utils)))
 suppressPackageStartupMessages(invisible(library(stringr)))
+suppressPackageStartupMessages(invisible(library(parallel)))
+suppressPackageStartupMessages(invisible(library(parallelly)))
 
+# Function that loads the datasets for single variant assumption. 
 sva_QTL <- function(TWAS_folder, member) {
   gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
   qtlcoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc")))
@@ -13,6 +16,7 @@ sva_QTL <- function(TWAS_folder, member) {
   sv.res <- coloc.abf(dataset1 = gwascoloc, dataset2 = qtlcoloc)
 }
 
+# Define string concatenation function.
 "%&%" <- function(a,b) paste(a,b,sep="")
 
 # Define command-line options.
@@ -32,14 +36,13 @@ LD_folder = opt$lddir
 LD_output = "LD_output/"
 
 # Set folder for TWAS data. 
-TWAS_folder = getwd() %&% "/" %&% opt$data
+TWAS_folder = str_replace(opt$data, "/", "")
 
-# Running coloc using single variant assumption
+# Create list of genes in the TWAS folder. 
 data_members <- list.dirs(TWAS_folder)
 data_members <- data_members[-1]
-print(data_members)
 
-data_members <- data_members[-1]
+# Run SVA for each gene. 
 for(member in data_members) {
   member_name = str_replace(member, TWAS_folder %&% "/", "")
   if(length(list.files(member)) == 0) {
@@ -50,21 +53,56 @@ for(member in data_members) {
   saveRDS(current_sva, file = file.path(member, member_name %&% "_sva")) 
 }
 
-if (!file.exists(LD_output)) {
+# Create folder to contain output for linkage disequilibrium processing. 
+if(!file.exists(LD_output)) {
   dir.create(LD_output)
-  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz --make-bed --out " %&% LD_output %&% "all_chr --threads " %&% opt$threads)
 }
 
-if (!file.exists(LD_output %&% "all_phase3_combined.vcf.gz")) {
-  system("bcftools concat -Oz --threads " %&% opt$threads %&% " -o " %&% LD_output %&% "all_phase3_combined.vcf.gz " %&% LD_folder %&% "ALL.chr*.vcf.gz")
+if(!dir.exists(LD_output %&% "corrected")) {
+  dir.create(LD_output %&% "corrected")
 }
 
-if (!file.exists(LD_output %&% "all_chr.bim") | !file.exists(LD_output %&% "all_chr.fam") | !file.exists(LD_output %&% "all_chr.bed")) {
-  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf.gz --max-alleles 2 --maf 0.01 --make-bed --out " %&% LD_output %&% "all_chr --threads " %&% opt$threads)
+# In R with %&%
+files = list.files("vcf_folder", pattern = "\\.vcf\\.gz$", full.names = TRUE)
+
+# Now, scale bcftools usage based on the threads
+mclapply(list.files(LD_folder, full.names = FALSE)[-1], function(f) {
+  corrected_file <- LD_output %&% "corrected/" %&% f %&% "_corrected.vcf.gz"
+  
+  if (!file.exists(corrected_file)) {
+    message("Processing:", f, "\n")  # Debugging print
+    
+    # Scale the number of threads used by bcftools
+    # If opt$threads is less than the available cores, it will use opt$threads
+    cmd1 <- "bcftools view -m2 -M2 -i \"MAF>0.01\" -Oz -o \"" %&%
+            corrected_file %&% "\" " %&%
+            LD_folder %&% f %&% " --threads " %&% opt$threads  # Set to opt$threads
+    system(cmd1)
+  }
+}, mc.cores = as.integer(opt$threads))
+
+# Concatenating all corrected .vcf files to a single larger files. 
+if (!file.exists(LD_output %&% "all_chr.vcf")) {
+  input_files <- Sys.glob(LD_output %&% "corrected/ALL.chr*_corrected.vcf.gz")
+  input_str <- paste(input_files, collapse = " ")
+  
+  cmd <- "bcftools concat -Ov --threads " %&%
+         opt$threads %&% " -o " %&% LD_output %&%
+         "all_chr.vcf " %&% input_str
+  
+  system(cmd)
 }
 
+# Creating .bed., .bim., .fam. files for all individuals in all_phase3_combined.vcf.gz. 
+if(!file.exists(LD_output %&% "all_chr.bed") | !file.exists(LD_output %&% "all_chr.bim") | !file.exists(LD_output %&% "all_chr.fam")) {
+  system("plink2 --vcf " %&% LD_output %&% "all_phase3_combined.vcf --make-bed --out " %&% LD_output %&% "all_chr --allow-extra-chr --threads " %&% opt$threads)
+}
+
+
+# Obtaining sample info. 
 sample_info <- fread(LD_folder %&% "20130606_sample_info.txt")
 
+# Reformatting sample info data, adding superpopulation information. 
 sample_info <- sample_info %>% 
   mutate(
     FID = 0, 
@@ -76,18 +114,55 @@ sample_info <- sample_info %>%
       Gender == "female" ~ 2,
       TRUE ~ 0
     ),
-    SuperPop = Population,
+    Population = Population,
+    SuperPop = case_when(
+      Population == "YRI" ~ "AFR",
+      Population == "LWK" ~ "AFR",
+      Population == "GWD" ~ "AFR",
+      Population == "MSL" ~ "AFR",
+      Population == "ESN" ~ "AFR",
+      Population == "ASW" ~ "AFR",
+      Population == "ACB" ~ "AFR",
+      Population == "MXL" ~ "AMR",
+      Population == "PUR" ~ "AMR",
+      Population == "CLM" ~ "AMR",
+      Population == "PEL" ~ "AMR",
+      Population == "CHB" ~ "EAS",
+      Population == "JPT" ~ "EAS",
+      Population == "CHS" ~ "EAS",
+      Population == "CDX" ~ "EAS",
+      Population == "KHV" ~ "EAS",
+      Population == "CEU" ~ "EUR",
+      Population == "TSI" ~ "EUR",
+      Population == "FIN" ~ "EUR",
+      Population == "GBR" ~ "EUR",
+      Population == "IBS" ~ "EUR",
+      Population == "GIH" ~ "SAS",
+      Population == "PJL" ~ "SAS",
+      Population == "BEB" ~ "SAS",
+      Population == "STU" ~ "SAS",
+      Population == "ITU" ~ "SAS"
+    ),
     PHENOTYPE = -9
   ) %>%
-  select(FID, IID, PAT, MAT, SEX, SuperPop, PHENOTYPE)
+  select(FID, IID, PAT, MAT, SEX, SuperPop, Population, PHENOTYPE)
 fwrite(sample_info, LD_output %&% "all_chr.psam", col.names = TRUE, sep = "\t")
 
+# Obtaining list of all individuals. 
 pops <- fread(LD_output %&% "all_chr.psam")
-superpop <- filter(pops, SuperPop == opt$superpop)
 
-superpoplist <- mutate(superpop, FID=0) %>% select(FID, `IID`)
+# Filtering given the population of interest. 
+if (opt$superpop %in% unique(sample_info$Population)) {
+  superpop <- filter(pops, Population == opt$superpop)
+} else {
+  superpop <- filter(pops, SuperPop == opt$superpop)
+}
+
+# Creating list of all individuals in the population of interest.
+superpoplist <- mutate(superpop, FID=0) %>% select(FID, IID)
 fwrite(superpoplist, paste0(LD_output, "superpop_list"), col.names = FALSE, sep = "\t")
 
+# Generating datasets for multivariant assumption alongside correlation matrix. 
 if(opt$process == "pqtl") {
   for (member in data_members) {
     if(length(list.files(member)) == 0) {
@@ -95,10 +170,10 @@ if(opt$process == "pqtl") {
     }
     gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
     qtlcoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc")))
-    fwrite(data.frame(qtlcoloc$snp), file = file.path(member, "coloc-snplist"), col.names = FALSE)
-    print("plink2 --bfile " %&% LD_output %&% "all_chr --extract " %&% member %&% "coloc-snplist --keep" %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out"  %&% member %&% "/superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
-    system("plink2 --bfile " %&% LD_output %&% "all_chr --extract " %&% member %&% "coloc-snplist --keep " %&% LD_output %&% "superpop_list --maf 0.01 --make-just-bim --out \""  %&% member %&% "/superpop_coloc-region\" --allow-extra-chr --threads " %&% opt$threads)
-    geno <- fread(member %&% "superpop_coloc-region.raw")
+    fwrite(data.frame(qtlcoloc$snp), file = paste0(member, "/coloc-snplist"), col.names = FALSE)
+    print(member)
+    system("plink2 --bfile " %&% LD_output %&% "all_chr --extract \"" %&% member %&% "/coloc-snplist\" --keep " %&% LD_output %&% "superpop_list --maf 0.01 --recode A --make-just-bim --out \""  %&% member %&% "/superpop_coloc-region\" --allow-extra-chr --threads " %&% opt$threads)
+    geno <- fread(member %&% "/superpop_coloc-region.raw")
     genomat <- as.matrix(geno[,7:length(geno)])
     snplist <- colnames(genomat)
     snplist <- substr(snplist, 1, nchar(snplist)-2)
@@ -167,7 +242,7 @@ if(opt$process == "pqtl") {
     gwascoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc")))
     qtlcoloc <- readRDS(paste0(member, paste0(str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc")))
     fwrite(data.frame(qtlcoloc$snp), file = file.path(member, "coloc-snplist"), col.names = FALSE)
-    bcf_command = "bcftools query -f '%CHROM\t%pos\t%ID\n' -R " %&% member %&% "coloc-snplist" %&% LD_output %&% "all_phase3_combined.vcf.gz > "%&% member %&%"snp_pos_to_rsid.tsv"
+    bcf_command = "bcftools query -f '%CHROM\t%pos\t%ID\n' -R " %&% member %&% "coloc-snplist" %&% LD_output %&% "all_phase3_combined.vcf.gz > "%&% member %&%"snp_pos_to_rsid.tsv --threads " %&% opt$threads
     system(bcf_command)
     eqtl <- fread(member %&%"snp_pos_to_rsid.tsv")
     snpmap <- fread(member %&%"snp_pos_to_rsid.tsv", col.names = c("CHR", "POS", "rsid"))
@@ -239,5 +314,3 @@ if(opt$process == "pqtl") {
     saveRDS(R, file = file.path(parent_dir, target_gene, paste0(target_gene, "_LDcorr")))
   }
 }
-
-pops <- fread(LD_output %&% "")
