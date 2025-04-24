@@ -16,23 +16,26 @@ suppressPackageStartupMessages(invisible(library(cgwtools)))
 
 # takes the binary files for the gwas and e/pqtl coloc objects as inputs for the Rscript #
 option_list <- list(
-  make_option("--genes", type = "character", help = "List of genes used for the analysis")
+  make_option("--genes", type = "character", help = "List of genes used for the analysis"),
+  make_option("--outputdir", type = "character", help = "Name of directory where you want output, this will be made for you")
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
 
-genes <- opt$genes 
+genes <- opt$genes
+out_dir <- opt$outputdir
 
-
+save.image("~/test.RData")
 coloc_construct <- function(genes){
   for(gene_name in genes){
-    if(file.exists(paste0(getwd(), "/", gene_name, "/", gene_name, "_gwascoloc")) & file.exists(paste0(getwd(), "/", gene_name, "/", gene_name, "_qtlcoloc"))){
-      gene.dir <- paste0(getwd(), "/", gene_name, "/")
+    if(file.exists(paste0(out_dir, gene_name, "/", gene_name, "_gwascoloc")) & file.exists(paste0(out_dir, gene_name, "/", gene_name, "_qtlcoloc"))){
+      gene.dir <- paste0(out_dir, gene_name, "/")
       system(paste0('touch ', gene.dir, gene_name, ".RData"))
       r.data <- paste0(gene.dir, gene_name, ".RData")
       gwascoloc <- readRDS(paste0(gene.dir, gene_name, "_gwascoloc"))
       qtlcoloc <- readRDS(paste0(gene.dir, gene_name, "_qtlcoloc"))
-      save(gwascoloc, qtlcoloc, file = r.data)
+      sva <- readRDS(file = paste0(gene.dir, gene_name, "_sva"))
+      save(gwascoloc, qtlcoloc, sva, file = r.data)
       gwascolocsusie <- readRDS(paste0(gene.dir, gene_name, "_gwascolocsusie"))
       if(is.null(check_dataset(gwascolocsusie,req="LD"))){
         message("Successfully loaded GWAS data with LD Matrix!")
@@ -109,3 +112,5 @@ coloc_construct <- function(genes){
     
 }
 }
+
+coloc_construct(genes)
