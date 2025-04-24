@@ -1,2 +1,11 @@
 coloc_project/
 processed/
+eQTL_results/
+test_folder/
+*.html
+*.pdf
+1000g_vcfs/
+pQTL_results/
+*.log
+LD_output/
+stash/

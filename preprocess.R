@@ -1,14 +1,27 @@
-library(data.table)
-library(dplyr)
-library(coloc)
-library(hash)
-library(optparse)
-library(R.utils)
+
+if(!require(data.table)) {install.packages("data.table")}
+if(!require(dplyr)) {install.packages("dplyr")}
+if(!require(coloc)) {install.packages("coloc")}
+if(!require(hash)) {install.packages("hash")}
+if(!require(optparse)) {install.packages("optparse")}
+if(!require(R.utils)) {install.packages("R.utils")}
+if(!require(stringr)) {install.packages("stringr")}
+
+
+# Loading appropriate libraries. 
+suppressPackageStartupMessages(invisible(library(data.table)))
+suppressPackageStartupMessages(invisible(library(dplyr)))
+suppressPackageStartupMessages(invisible(library(coloc)))
+suppressPackageStartupMessages(invisible(library(hash)))
+suppressPackageStartupMessages(invisible(library(optparse)))
+suppressPackageStartupMessages(invisible(library(R.utils)))
+suppressPackageStartupMessages(invisible(library(stringr)))
 
 # Define string concatenation function
 "%&%" <- function(a, b) paste(a, b, sep="")
 
 # Define command-line options
+message("Obtaining command line arguments...")
 option_list <- list(
   make_option("--process", type = "character", default = "pqtl", help = "If using eqtl data, add process flag, otherwise pqtl is the default."),
   make_option("--genes", type = "character", help = "List of genes of intrest, see READ.ME for specifications."),
@@ -31,6 +44,7 @@ opt <- parse_args(OptionParser(option_list=option_list))
 parent_dir <- file.path(getwd(), opt$outputdir) 
 dir.create(parent_dir, showWarnings = FALSE, recursive = TRUE)  #create if it doesn't exist
 
+message("Reading in genes of intrest...")
 #read in the genes of intrest
 genes = fread(opt$genes)
 
@@ -40,6 +54,7 @@ for (gene in genes$genes) {
   dir.create(dir_path) 
 }
 
+message("Reading in data...")
 #if using eqtl data
 if (opt$process == "eqtl") {
   #read in gwas and eqtl datasets
@@ -57,7 +72,8 @@ if (opt$process == "eqtl") {
            BETA = slope, #regression coefficient for A1 allele
            SE = slope_se, #standard error
            P = pval_nominal) #p-value
-  
+
+message("Filtering data...")
   #filter eqtl data
   eQTLs <- eQTLs %>%
     filter(nchar(A1)==1, #remove indels from alt alleles
@@ -120,7 +136,7 @@ if (opt$process == "eqtl") {
       distinct(POS.y, .keep_all = TRUE) #keep only distinct
     matchsnps <- matchsnps %>%
       na.omit() #omit NAs
-    
+message("Formatting data for coloc analysis...")
     #format gwas data for coloc analysis
     gwascoloc = list("beta" = matchsnps$BETA.y, "varbeta" = (matchsnps$SE.y)^2, "snp" = matchsnps$chr_pos, "position" = matchsnps$POS.y,
                      "type" = "cc")
@@ -142,7 +158,6 @@ if (opt$process == "eqtl") {
   gwas = fread(opt$GWASdir)
   pQTLdir = opt$pQTLdir
   seqid = fread(opt$seqIDdir)
-  
   #remame GWAS input for better handling
   gwas <- gwas %>%
     rename_with(~ c("CHR", "POS", "A1", "A2", "BETA", "SE"), 
@@ -222,8 +237,5 @@ if (opt$process == "eqtl") {
     
     #save matchsnp data for LD downstream 
     saveRDS(matchsnps, file = file.path(parent_dir, target_gene, paste0(target_gene, "_matchsnps")))
-    
-    
   }
-  
 }
