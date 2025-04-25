@@ -47,6 +47,8 @@ def checkLDdata(output_folder: str, ld: str):
             os.chdir("1000g_vcfs")
         ld_dir = "1000g_vcfs/"
     else:
+        if not os.path.isdir(output_folder):
+            SystemExit("LD_SETUP: LD data folder specified does not exist. Please create folder and try again.")
         ld_dir = output_folder
 
     os.chdir(ld_dir.replace("/", "").replace("\"", ""))
@@ -55,12 +57,12 @@ def checkLDdata(output_folder: str, ld: str):
     for x in range(1, 23):
         if not os.path.isfile(f"ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"):
             os.system(f"wget -q --show-progress ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz")
-    if not os.path.isfile(f"integrated_call_samples_v3.20200731.ALL.ped"):
-            os.system(f"wget -q --show-progress ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped")
-    if not os.path.isfile(f"GCF_000001405.25.gz"):
-            os.system(f"wget -q --show-progress wget ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz")
-    if not os.path.isfile("GCF_000001405.25.gz.tbi"):
-            os.system(f"wget -q --show-progress wget ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi")
+        if not os.path.isfile(f"integrated_call_samples_v3.20200731.ALL.ped"):
+                os.system(f"wget -q --show-progress ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped")
+        if not os.path.isfile(f"GCF_000001405.25.gz"):
+                os.system(f"wget -q --show-progress wget ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz")
+        if not os.path.isfile("GCF_000001405.25.gz.tbi"):
+                os.system(f"wget -q --show-progress wget ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi")
 
     os.chdir(current_wd)
     return ld_dir

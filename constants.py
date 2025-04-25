@@ -4,13 +4,16 @@ class Constants:
     """
     A class of constants (mainly to store important directories/inputs).
     """
-    def __init__(self, test= "False"): 
+    def __init__(self, test= "False", process = "pqtl"): 
         """
         Instantiation function which reads all of the config options into python.
         """
         self._config = configparser.ConfigParser()
         if test == "True" or test == "true" or test == "T" or test == "t":
-            self._config.read("config_test.ini")
+            if process = "eqtl":
+                self._config.read("config_test_eqtl.ini")
+            else:
+                self._config.read("config_test_pqtl.ini")
         else:    
             self._config.read("config.ini")
 
