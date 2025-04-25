@@ -213,15 +213,15 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
     # Load coloc input files
     gwascoloc <- readRDS(paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascoloc"))
     qtlcoloc  <- readRDS(paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc"))
-
-    # Extract SNPs and write snplist for PLINKW
-    split <- tstrsplit(qtlcoloc$snp, ":")
-    range_df <- data.frame(
-      CHR = split[[1]],
-      START = as.numeric(split[[2]]),
-      END = as.numeric(split[[2]])
-    )
     
+    # Generate SNP list using annotated .bim file.
+    bim_snp <- fread(LD_output %&% "/all_chr_annotated.bim")
+    positions <- tstrsplit(qtlcoloc$snp, ":", col.names = c("CHR", "POS"))
+    snp_ids <- inner_join(positions, bim_snp, by = c("CHR", "BP")) %>% 
+      pull(SNP)
+    
+    # Write SNP list to file
+    fwrite(data.frame(snp_ids), "snp_ids_for_plink.txt", col.names = FALSE, quote = FALSE)
 
     # Generate genotype matrix using PLINK
     system("plink2 --bfile " %&% LD_output %&% "/all_chr --extract range " %&% member %&% 
