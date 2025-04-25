@@ -1,208 +1,107 @@
-invisible(library(data.table))
-invisible(library(dplyr))
-invisible(library(coloc))
-invisible(library(hash))
-invisible(library(optparse))
-invisible(library(locuscomparer))
-invisible(library(stringr))
+if(!require(devtools)){install.packages("devtools")}
+suppressPackageStartupMessages(invisible(library(devtools)))
+if(!require(locuscomparer)){devtools::install_github("boxiangliu/locuscomparer")}
+if(!require(cgwtools)){install.packages("cgwtools")}
+
+
+suppressPackageStartupMessages(invisible(library(data.table)))
+suppressPackageStartupMessages(invisible(library(dplyr)))
+suppressPackageStartupMessages(invisible(library(coloc)))
+suppressPackageStartupMessages(invisible(library(hash)))
+suppressPackageStartupMessages(invisible(library(optparse)))
+suppressPackageStartupMessages(invisible(library(locuscomparer)))
+suppressPackageStartupMessages(invisible(library(stringr)))
+suppressPackageStartupMessages(invisible(library(cgwtools)))
+
 
 # takes the binary files for the gwas and e/pqtl coloc objects as inputs for the Rscript #
 option_list <- list(
-  make_option("--gwas", type = "character", help = "Filepath containing the binary file of the GWAS coloc object"),
-  make_option("--twas", type = "character", help = "Filepath containing the binary file of the e/pQTL coloc object"),
-  make_option("--ref_dir", type = "character", help = "Directory contating the outputs of the full genome analysis"),
-  make_option("--gene_dir", type = "character", help = "Directory containing the gene of interest"),
-  make_option("--plink", type = "character", help = "Filepath where plink is installed"),
-  make_option("--matchsnps", type = "character", help = "Filepath to the matchsnps data.table"),
-  make_option("--super_pop", type = "character", help = 'The identity of the superpopulation to pull LD values from')
+  make_option("--genes", type = "character", help = "List of genes used for the analysis"),
+  make_option("--outputdir", type = "character", help = "Name of directory where you want output, this will be made for you")
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
 
-gwascoloc <- readRDS(opt$gwas)
-twascoloc <- readRDS(opt$twas)
-gene.dir <- opt$gene_dir
-ref.dir <- opt$ref_dir
-plink.dir <- opt$plink
-matchsnps <- readRDS(opt$matchsnps)
-super_pop <- opt$super_pop
-gene.name <- basename(opt$gene_dir)
+genes <- opt$genes
+out_dir <- opt$outputdir
 
-if(!dir.exists(paste0(gene.dir, "mv_results/"))){
-  dir.create(paste0(gene.dir, "mv_results/"), recursive = TRUE)
+save.image("~/test.RData")
+coloc_construct <- function(genes){
+  for(gene_name in genes){
+    if(file.exists(paste0(out_dir, gene_name, "/", gene_name, "_gwascoloc")) & file.exists(paste0(out_dir, gene_name, "/", gene_name, "_qtlcoloc"))){
+      gene.dir <- paste0(out_dir, gene_name, "/")
+      system(paste0('touch ', gene.dir, gene_name, ".RData"))
+      r.data <- paste0(gene.dir, gene_name, ".RData")
+      if(!dir.exists(paste0(gene.dir, "Results"))){system(paste0('mkdir ', gene.dir, "Results"))}
+      res.dir <- paste0(gene.dir, "Results/")
+      gwascoloc <- readRDS(paste0(gene.dir, gene_name, "_gwascoloc"))
+      qtlcoloc <- readRDS(paste0(gene.dir, gene_name, "_qtlcoloc"))
+      sva <- readRDS(file = paste0(gene.dir, gene_name, "_sva"))
+      system(paste0('touch ', res.dir, gene_name, "_sva.csv"))
+      fwrite(sva$results, file = paste0(res.dir, gene_name, "_sva.csv"))
+      gwascolocsusie <- readRDS(file = paste0(gene.dir, gene_name, "_gwascolocsusie"))
+      if(is.null(check_dataset(gwascolocsusie,req="LD"))){
+        message("Successfully loaded GWAS data with LD Matrix!")
+      }else{
+          stop("Could not load GWAS data with LD Matrix.")
+        }
+      qtlcolocsusie <- readRDS(file = paste0(gene.dir, gene_name, "_qtlcolocsusie"))
+      if(is.null(check_dataset(qtlcolocsusie,req="LD"))){
+        message("Successfully loaded QTL data with LD Matrix!")
+      }else{
+        stop("Could not load QTL data with LD Matrix.")
+      }
+      susiesnps <- readRDS(file = paste0(gene.dir, gene_name, "_susiesnps"))
+      gwassnps.df <- dplyr::select(susiesnps, c('RS', 'P.x'))
+      twassnps.df <- dplyr::select(susiesnps, c('RS', 'P.y'))
+      colnames(gwassnps.df) <- c('rsid', 'pval'); colnames(twassnps.df) <- c('rsid', 'pval')
+      gwassnps.id <- read_metal(gwassnps.df, marker_col = 'rsid', pval_col = 'pval')
+      twassnps.id <- read_metal(twassnps.df, marker_col = 'rsid', pval_col = 'pval')
+      merged <- merge(gwassnps.id, twassnps.id, by = 'rsid', suffixes = c('1','2'), all = FALSE)
+      lead.snp <- get_lead_snp(merged)
+      snp.pos <- get_position(merged, 'hg38')
+      leadsnp.loc <- dplyr::filter(snp.pos,rsid == lead.snp)
+      sgwas = runsusie(gwascolocsusie)
+      if(!is.null(sgwas$sets$cs)){
+        gwas_cc.count <- length(sgwas$sets$cs)
+        gwas.count <- sum(sapply(sgwas$sets$cs, length))
+        stwas = runsusie(qtlcolocsusie)
+      }else{
+        gwas.count <- 0
+        gwas_cc.count <- 0
+        twas.count <- 0
+        twas_cc.count <- 0
+        save(gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
+             gwas_cc.count, gwas.count, twas_cc.count, twas.count, file = r.data)
+        rmarkdown::render('./visualize.Rmd', params = list(rdata_path = r.data), output_file = paste0(gene.dir, gene_name, "_coloc.html"))
+        message("No credible sets detected for the GWAS data in this region for this phenotype; moving to the next gene.")
+      }
+      if(!is.null(stwas$sets$cs)){
+        twas_cc.count <- length(stwas$sets$cs)
+        twas.count <- sum(sapply(stwas$sets$cs, length))
+        susie.res = coloc.susie(sgwas, stwas)
+        susie.sum <- susie.res$summary
+        colnames(susie.sum) <- c('nSNPs', 'GWAS SNP', 'TWAS SNP', 'H0', 'H1', 'H2','H3', 'H4', 'GCS', 'TCS')
+        susie.sum <- as.data.frame(susie.sum)
+        susie.full <- susie.res$results
+        system(paste0('touch ', res.dir, gene_name, '_mva.csv'))
+        fwrite(susie.full, file = paste0(res.dir, gene_name, '_mva.csv'))
+        save(gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
+             stwas, gwas_cc.count, gwas.count, twas_cc.count, twas.count,susie.res, susie.sum, file = r.data)
+        rmarkdown::render(paste0('./visualize.Rmd'), params = list(rdata_path = r.data), output_file = paste0(res.dir, gene_name, "_coloc.html"))
+      } else{
+        twas.count <- 0
+        twas_cc.count <- 0
+        save(gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
+             stwas, gwas_cc.count, gwas.count, twas_cc.count, twas.count, file = r.data)
+        rmarkdown::render('./visualize.Rmd', params = list(rdata_path = r.data), output_file = paste0(res.dir, gene_name, "_coloc.html"))
+        message("No credible sets detected for the QTL data in this region for this phenotype; moving to next gene.")
+      }
+    }else{
+      message(paste0("The gene ", gene_name, " is not found in this region!"))
+    }
+    
 }
-res.dir <- paste0(gene.dir, "mv_results/")
-
-#make a list of EUR individuals in 1000 Genomes
-for(i in list.files(ref.dir)){
-  if(grepl(".psam", i) == TRUE){
-    pops = fread(paste0(ref.dir, i))
-  }
-}
-
-pops <- as.data.frame(pops)
-eur = filter(pops,SuperPop==super_pop)
-#note the FID column (column 1) in /homes/data/1000g_ref_data/all_phase3.rsid.maf001.fam is all zeros
-eurlist = mutate(eur, FID = 0) %>% dplyr::select(FID, `#IID`)
-# adds a column with zeroes for FID and then makes a new data.table with only the FID and #IID columns #
-
-if(!dir.exists(paste0(res.dir, 'plink_materials/'))){
-  system(paste0('mkdir ', res.dir, 'plink_materials/'))
-}
-
-plinkmat.dir <- paste0(res.dir, 'plink_materials/')
-
-fwrite(eurlist,paste0(plinkmat.dir, 'id_list.txt'),col.names=FALSE, sep="\t")
-# outputs the results so they can be read by plink later #
-
-#write list of SNPs in coloc df's
-fwrite(data.frame(matchsnps$RS), file= paste0(plinkmat.dir, "coloc-snplist"), col.names = FALSE)
-# outputs the names of the snps that made it through coloc such that it can be read by plink #
-
-for(i in list.files(ref.dir)){
-  if(grepl(".bim", i) == TRUE){
-    bimf = i
-  }
-}
-
-base <- strsplit(list.files(ref.dir)[1], '.bed')
-base <- as.character(base)
-
-system(paste0(plink.dir, " --bfile ", ref.dir, base,  " --extract ", plinkmat.dir, "coloc-snplist --keep ", plinkmat.dir, "id_list.txt --maf 0.01 --recode A --make-just-bim --out ",  plinkmat.dir, "coloc_region --allow-extra-chr"))
-
-save.image('./test.RData')
-#read the EUR .raw file generated by plink into R.#
-geno = fread(paste0(plinkmat.dir,"coloc_region.raw"))
-# reads the raw files and tells you if the individual is either a homozygote for the reference (0), heterozygous (1), and homozygote for the variant (2) #
-
-# we want to put genotypes in NxP matrix (N=people, P=snps) with no other columns
-genomat = as.matrix(geno[,7:length(geno)])
-# filter out all the columns that don't have snp information #
-
-#now filter the gwascoloc and pqtlcoloc df's to those SNPs that were in EUR (in genomat)
-#get a list of SNPs in genomat
-snplist = colnames(genomat)
-
-#remove the last 2 characters (_N) from genomat colnames to match topsleep with substr()
-snplist = substr(snplist, 1, nchar(snplist)-2)
-# removed the last 2 characters from the string #
-
-#rename col names of R to match coloc df's
-colnames(genomat) = snplist
-
-#check pQTL and 1000G EUR alleles (ask, what is coded as 1?), if need to, flip BETA signs.
-#col 5 in bim is A1 (assigned 1 in dosage raw file)
-bim = fread(paste0(plinkmat.dir, "coloc_region.bim"))
-
-for(i in 1:nrow(bim)){
-  bim$cp[i] <- paste0(bim$V1[i], ':', bim$V4[i])
-}
-
-susiesnpsbim = inner_join(matchsnps, bim, by=c("RS"="V2"))
-# make a data.table that joins the rows of matchsnps and bim by ID and V2, repsectively
-
-#pull SNPs that  match (assumes C|G and A|T SNPs aren't flipped)
-matchbim = susiesnpsbim[(susiesnpsbim$A1.x==susiesnpsbim$V5 & susiesnpsbim$REF == susiesnpsbim$V6),]
-# same as we did before except with the combined snps determined for susie @
-#remove ambiguous strand SNPs (A/T or C/G)
-
-b = susiesnpsbim[!(susiesnpsbim$REF=="A" & susiesnpsbim$ALT=="T") & !(susiesnpsbim$REF=="T" & susiesnpsbim$ALT=="A") & !(susiesnpsbim$REF=="C" & susiesnpsbim$ALT=="G") & !(susiesnpsbim$REF=="G" & susiesnpsbim$ALT=="C") ]
-# same as before #
-
-#check for complement bases
-#build hash table (like a Python dictionary)
-bases = hash()
-bases[["A"]] <- "T"
-bases[["C"]] <- "G"
-bases[["G"]] <- "C"
-bases[["T"]] <- "A"
-
-#of non-ambiguous, pull SNPs that are flipped (or the complement bases match or are flipped)
-compmatchbim = b[(b$A1.x==values(bases,keys=b$V5) & b$REF == values(bases,keys=b$V6)),]
-# same as before #
-
-flippedbim = b[(b$A1.x==b$V6 & b$REF == b$V5),]
-# same as before #
-compflippedbim = b[(b$A1.x==values(bases,keys=b$V6) & b$REF == values(bases,keys=b$V5)),]
-# same as before #
-
-#if flipped, change sign of cancer and pQTL beta, check to see if any SNPs are in flipped df's with if stmt
-if(dim(flippedbim)[1] > 0){
-  flippedbim = mutate(flippedbim,BETA.x = -1*BETA.x,BETA.y = -1*BETA.y)
-}
-if(dim(compflippedbim)[1] > 0){
-  compflippedbim = mutate(compflippedbim,BETA.x = -1*BETA.x,BETA.y = -1*BETA.y)
-}
-# same as before #
-
-#bind all and sort by position
-matchbimsnps = rbind(matchbim, compmatchbim, flippedbim, compflippedbim) %>% arrange(chr_pos)
-
-#update snplist
-snplist = matchbimsnps$chr_pos
-#filter genomat to snps in snplist
-x = genomat[,colnames(genomat) %in% matchbimsnps$RS]
-#calculate the correlation matrix of the genotypes, this is needed for susie
-R = cor(x)
-
-#filter the matchbimsnps df to just the snps in snplist with dplyr
-susiesnps = filter(matchbimsnps, chr_pos %in% snplist)
-#add LD to filtered coloc df's
-gwassusiecoloc = list("beta" = susiesnps$BETA.y, "varbeta" = (susiesnps$SE.y)^2, "snp" = susiesnps$chr_pos, "position" = susiesnps$POS.y,
-                 "type" = "cc", "LD" = R, "N" = 100000)
-#format pqtl data for coloc analysis
-twassusiecoloc = list("beta" = susiesnps$BETA.x, "varbeta" = (susiesnps$SE.x)^2, "snp" = susiesnps$chr_pos, "position" = susiesnps$POS.x,
-                 "type" = "quant", "N" = susiesnps$OBS_CT[1], "MAF" = susiesnps$A1_FREQ, "sdY"=1, LD = R )
-
-rownames(gwassusiecoloc$LD) = gwassusiecoloc$snp; colnames(gwassusiecoloc$LD) = gwassusiecoloc$snp
-check_dataset(gwassusiecoloc,req="LD")
-
-rownames(twassusiecoloc$LD) = twassusiecoloc$snp; colnames(twassusiecoloc$LD) = twassusiecoloc$snp
-check_dataset(twassusiecoloc,req="LD")
-
-gwassnps.df <- dplyr::select(matchbimsnps, c('RS', 'P.x')) 
-twassnps.df <- dplyr::select(matchbimsnps, c('RS', 'P.y'))
-
-colnames(gwassnps.df) <- c('rsid', 'pval'); colnames(twassnps.df) <- c('rsid', 'pval')
-
-gwassnps.id <- read_metal(gwassnps.df, marker_col = 'rsid', pval_col = 'pval')
-twassnps.id <- read_metal(twassnps.df, marker_col = 'rsid', pval_col = 'pval')
-
-merged <- merge(gwassnps.id, twassnps.id, by = 'rsid', suffixes = c('1','2'), all = FALSE)
-lead.snp <- get_lead_snp(merged)
-snp.pos <- get_position(merged, 'hg38')
-
-leadsnp.loc <- dplyr::filter(snp.pos,rsid == lead.snp)
-
-sgwas = runsusie(gwassusiecoloc)
-
-setwd('/home/2025/cdotson/test')
-if(!is.null(sgwas$sets$cs)){
-  gwas_cc.count <- length(sgwas$sets$cs)
-  gwas.count <- sum(sapply(sgwas$sets$cs, length))
-  stwas = runsusie(twassusiecoloc)
-  }else{
-    gwas.count <- 0
-    gwas_cc.count <- 0
-    twas.count <- 0
-    twas_cc.count <- 0
-    save.image(paste0(res.dir, gene.name, '_raw.RData'))
-    rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
 }
 
-if(!is.null(stwas$sets$cs)){
-  twas_cc.count <- length(stwas$sets$cs)
-  twas.count <- sum(sapply(stwas$sets$cs, length))
-  susie.res = coloc.susie(sgwas, stwas)
-  susie.sum <- susie.res$summary
-  colnames(susie.sum) <- c('nSNPs', 'GWAS SNP', 'TWAS SNP', 'H0', 'H1', 'H2','H3', 'H4', 'GCS', 'TCS')
-  susie.sum <- as.data.frame(susie.sum)
-  susie.full <- susie.res$results
-  save.image(paste0(res.dir, gene.name,'_raw.RData'))
-  rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
-} else{
-  twas.count <- 0
-  twas_cc.count <- 0
-  save.image(paste0(res.dir, gene.name, '_raw.RData'))
-  rmarkdown::render('/home/2025/cdotson/CAP/visualize.Rmd', params = list(rdata_path = paste0(res.dir, gene.name, "_raw.RData")), output_file = paste0(gene.name, "_coloc.html"))
-}
+coloc_construct(genes)
