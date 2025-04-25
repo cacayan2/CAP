@@ -50,8 +50,9 @@ def checkLDdata(output_folder: str, ld: str):
         if not os.path.isdir(output_folder):
             SystemExit("LD_SETUP: LD data folder specified does not exist. Please create folder and try again.")
         ld_dir = output_folder
+        os.chdir(ld_dir.replace("/", "").replace("\"", ""))
 
-    os.chdir(ld_dir.replace("/", "").replace("\"", ""))
+    
 
     print("LD_SETUP: Downloading LD data if needed...")
     for x in range(1, 23):
