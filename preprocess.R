@@ -6,7 +6,7 @@ if(!require(hash)) {install.packages("hash")}
 if(!require(optparse)) {install.packages("optparse")}
 if(!require(R.utils)) {install.packages("R.utils")}
 if(!require(stringr)) {install.packages("stringr")}
-
+if(!require(parallel)) {install.packages("parallel")}
 
 # Loading appropriate libraries. 
 suppressPackageStartupMessages(invisible(library(data.table)))

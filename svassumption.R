@@ -8,7 +8,6 @@ suppressPackageStartupMessages({
   invisible(library(R.utils))
   invisible(library(stringr))
   invisible(library(parallel))
-  invisible(library(parallelly))
 })
 
 # ----------------------------
