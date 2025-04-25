@@ -96,9 +96,9 @@ def checkLDdata(output_folder: str, ld: str):
     if not os.path.isfile(f"integrated_call_samples_v3.20200731.ALL.ped"):
         os.system(f"wget -q --show-progress ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped")
     if not os.path.isfile(f"GCF_000001405.25.gz"):
-        os.system(f"wget -q --show-progress wget ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz")
+        os.system(f"wget -q --show-progress ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz")
     if not os.path.isfile("GCF_000001405.25.gz.tbi"):
-        os.system(f"wget -q --show-progress wget ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi")
+        os.system(f"wget -q --show-progress ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi")
 
     os.chdir(current_wd)
     return ld_dir
