@@ -94,7 +94,7 @@ message("Filtering data...")
   for (target_gene in genes$genes) {
     gene_eQTL <- eQTLs %>% filter(grepl(paste0("^", target_gene), gene_id)) #filter eqtl data for specific gene
     if (nrow(gene_eQTL) == 0) {
-      cat("Skipping gene", target_gene, "as it is not found in eQTL data\n") #if gene is not in data, skip it
+      message("Skipping gene", target_gene, "as it is not found in eQTL data\n") #if gene is not in data, skip it
       next
     }
     
@@ -136,7 +136,8 @@ message("Filtering data...")
       distinct(POS.y, .keep_all = TRUE) #keep only distinct
     matchsnps <- matchsnps %>%
       na.omit() #omit NAs
-message("Formatting data for coloc analysis...")
+    
+    message("Formatting data for coloc analysis...")
     #format gwas data for coloc analysis
     gwascoloc = list("beta" = matchsnps$BETA.y, "varbeta" = (matchsnps$SE.y)^2, "snp" = matchsnps$chr_pos, "position" = matchsnps$POS.y,
                      "type" = "cc")
@@ -172,7 +173,7 @@ message("Formatting data for coloc analysis...")
       pull(seqid_in_sample) #find the seqID which will be used to pull pqtl data
     
     if (length(protein) == 0) {
-      cat("Skipping gene", target_gene, "as it is not found in seqID mapping\n")
+      message("Skipping gene", target_gene, "as it is not found in seqID mapping\n")
       next
     }
     
@@ -225,6 +226,7 @@ message("Formatting data for coloc analysis...")
     #bind all and sort by position
     matchsnps = rbind(match, compmatch, flipped, compflipped) %>% arrange(chr_pos)
     
+    message("Formatting data for coloc analysis...")    
     #format gwas data for coloc analysis
     gwascoloc = list("beta" = matchsnps$BETA.y, "varbeta" = (matchsnps$SE.y)^2, "snp" = matchsnps$chr_pos, "position" = matchsnps$POS.y,
                      "type" = "cc")
