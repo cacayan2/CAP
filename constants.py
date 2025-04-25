@@ -11,9 +11,9 @@ class Constants:
         self._config = configparser.ConfigParser()
         if test == "True" or test == "true" or test == "T" or test == "t":
             if process == "eqtl":
-                self._config.read("config_test_eqtl.ini")
+                self._config.read("test_config/config_test_eqtl.ini")
             else:
-                self._config.read("config_test_pqtl.ini")
+                self._config.read("test_config/config_test_pqtl.ini")
         else:    
             self._config.read("config.ini")
 
