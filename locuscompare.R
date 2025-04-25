@@ -29,6 +29,7 @@ save.image("~/test.RData")
 coloc_construct <- function(genes){
   for(gene_name in genes){
     if(file.exists(paste0(out_dir, gene_name, "/", gene_name, "_gwascoloc")) & file.exists(paste0(out_dir, gene_name, "/", gene_name, "_qtlcoloc"))){
+      gene.name <- gene_name
       gene.dir <- paste0(out_dir, gene_name, "/")
       system(paste0('touch ', gene.dir, gene_name, ".RData"))
       r.data <- paste0(gene.dir, gene_name, ".RData")
@@ -43,8 +44,8 @@ coloc_construct <- function(genes){
       if(is.null(check_dataset(gwascolocsusie,req="LD"))){
         message("Successfully loaded GWAS data with LD Matrix!")
       }else{
-          stop("Could not load GWAS data with LD Matrix.")
-        }
+        stop("Could not load GWAS data with LD Matrix.")
+      }
       qtlcolocsusie <- readRDS(file = paste0(gene.dir, gene_name, "_qtlcolocsusie"))
       if(is.null(check_dataset(qtlcolocsusie,req="LD"))){
         message("Successfully loaded QTL data with LD Matrix!")
@@ -71,9 +72,9 @@ coloc_construct <- function(genes){
         gwas_cc.count <- 0
         twas.count <- 0
         twas_cc.count <- 0
-        save(gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
+        save(gene.name, gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
              gwas_cc.count, gwas.count, twas_cc.count, twas.count, file = r.data)
-        rmarkdown::render('./visualize.Rmd', params = list(rdata_path = r.data), output_file = paste0(gene.dir, gene_name, "_coloc.html"))
+        rmarkdown::render('./visualize.Rmd', params = list(rdata_path = r.data), output_file = paste0(res.dir, gene_name, "_coloc.html"))
         message("No credible sets detected for the GWAS data in this region for this phenotype; moving to the next gene.")
       }
       if(!is.null(stwas$sets$cs)){
@@ -86,13 +87,13 @@ coloc_construct <- function(genes){
         susie.full <- susie.res$results
         system(paste0('touch ', res.dir, gene_name, '_mva.csv'))
         fwrite(susie.full, file = paste0(res.dir, gene_name, '_mva.csv'))
-        save(gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
+        save(gene.name, gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
              stwas, gwas_cc.count, gwas.count, twas_cc.count, twas.count,susie.res, susie.sum, file = r.data)
         rmarkdown::render(paste0('./visualize.Rmd'), params = list(rdata_path = r.data), output_file = paste0(res.dir, gene_name, "_coloc.html"))
       } else{
         twas.count <- 0
         twas_cc.count <- 0
-        save(gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
+        save(gene.name, gwascoloc, qtlcoloc, sva, gwascolocsusie, qtlcolocsusie, susiesnps, gwassnps.df, twassnps.df, lead.snp, sgwas,
              stwas, gwas_cc.count, gwas.count, twas_cc.count, twas.count, file = r.data)
         rmarkdown::render('./visualize.Rmd', params = list(rdata_path = r.data), output_file = paste0(res.dir, gene_name, "_coloc.html"))
         message("No credible sets detected for the QTL data in this region for this phenotype; moving to next gene.")
@@ -101,7 +102,7 @@ coloc_construct <- function(genes){
       message(paste0("The gene ", gene_name, " is not found in this region!"))
     }
     
-}
+  }
 }
 
 coloc_construct(genes)
