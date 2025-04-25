@@ -83,6 +83,7 @@ if (!file.exists(LD_output)) dir.create(LD_output)
 if (!dir.exists(file.path(LD_output, "corrected"))) dir.create(file.path(LD_output, "corrected"))
 
 # Process and filter .vcf.gz files using bcftools with threading
+message("Filtering VCFs...")
 vcf_files <- list.files(LD_folder, full.names = FALSE)[-1]  # Skip "." entry
 mclapply(vcf_files, function(f) {
   corrected_file <- file.path(LD_output, "corrected", f %&% "_corrected.vcf.gz")
@@ -104,6 +105,7 @@ mclapply(vcf_files, function(f) {
 # ----------------------------
 
 # Concatenate all corrected chromosome files
+message("Concatenating VCFs...")
 all_chr_vcf <- file.path(LD_output, "all_chr.vcf.gz")
 if (!file.exists(all_chr_vcf)) {
   input_files <- Sys.glob(file.path(LD_output, "corrected", "ALL.chr*_corrected.vcf.gz"))
@@ -117,12 +119,19 @@ if (!file.exists(all_chr_vcf)) {
   system(cmd)
 }
 
+# Index the concatenated VCF
+message("Indexing VCF...")
+if (!file.exists(all_chr_vcf %&% ".tbi")) {
+  system(paste("tabix -p vcf", shQuote(all_chr_vcf)))
+}
+
 # Annotate the concatenated VCF
 annotated_vcf <- file.path(LD_output, "all_chr_annotated.vcf.gz")
 dbsnp_vcf <- LD_folder %&% "GCF_000001405.25.gz" 
 vcf_to_annotate <- file.path(LD_output, "all_chr.vcf.gz")
 
 # Annotate with dbSNP if the annotated file doesn't exist
+message("Annotating VCF...")
 if (!file.exists(annotated_vcf)) {
   cmd <- paste(
     "bcftools annotate",
@@ -135,7 +144,8 @@ if (!file.exists(annotated_vcf)) {
   system(cmd)
 }
 
-# Index the concatenated VCF
+# Index the annotated VCF
+message("Indexing annotated VCF...")
 if (!file.exists(annotated_vcf %&% ".tbi")) {
   system(paste("tabix -p vcf", shQuote(annotated_vcf)))
 }
@@ -144,6 +154,7 @@ if (!file.exists(annotated_vcf %&% ".tbi")) {
 # Convert VCF to PLINK Format
 # ----------------------------
 
+message("Converting VCF to PLINK...")
 plink_prefix <- file.path(LD_output, "all_chr_annotated")
 if (!file.exists(plink_prefix %&% ".bed") ||
     !file.exists(plink_prefix %&% ".bim") ||
@@ -158,9 +169,11 @@ if (!file.exists(plink_prefix %&% ".bed") ||
 }
 
 # Load sample information
+message("Loading sample information...")
 sample_info <- fread(LD_folder %&% "integrated_call_samples_v3.20200731.ALL.ped")
 
 # Reformat sample data to include PLINK .psam fields and superpopulation information
+message("Reformatting sample information...")
 sample_info <- sample_info %>% 
   mutate(
     FID = 0,
@@ -204,6 +217,7 @@ superpoplist <- mutate(superpop, FID = 0) %>% select(FID, IID)
 fwrite(superpoplist, paste0(LD_output, "/superpop_list"), col.names = FALSE, sep = "\t")
 
 # Generate LD matrices and coloc inputs if running for QTL-based analyses
+message("Generating LD matrices and coloc inputs...")
 if (opt$process == "pqtl" | opt$process == "eqtl") {
   for (member in data_members) {
     # Skip if folder is empty

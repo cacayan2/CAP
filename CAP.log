@@ -1,1 +1,190 @@
----Colocalization Automation Pipeline Log File---
+---Colocalization Automation Pipeline Log File---Loading required package: data.table
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: coloc
+This is coloc version 5.2.3
+Loading required package: hash
+hash-2.2.6.3 provided by Decision Patterns
+
+
+Attaching package: ‘hash’
+
+The following object is masked from ‘package:data.table’:
+
+    copy
+
+Loading required package: optparse
+Loading required package: R.utils
+Loading required package: R.oo
+Loading required package: R.methodsS3
+R.methodsS3 v1.8.2 (2022-06-13 22:00:14 UTC) successfully loaded. See ?R.methodsS3 for help.
+R.oo v1.27.0 (2024-11-01 18:00:02 UTC) successfully loaded. See ?R.oo for help.
+
+Attaching package: ‘R.oo’
+
+The following object is masked from ‘package:R.methodsS3’:
+
+    throw
+
+The following objects are masked from ‘package:methods’:
+
+    getClasses, getMethods
+
+The following objects are masked from ‘package:base’:
+
+    attach, detach, load, save
+
+R.utils v2.13.0 (2025-02-24 21:20:02 UTC) successfully loaded. See ?R.utils for help.
+
+Attaching package: ‘R.utils’
+
+The following object is masked from ‘package:utils’:
+
+    timestamp
+
+The following objects are masked from ‘package:base’:
+
+    cat, commandArgs, getOption, isOpen, nullfile, parse, warnings
+
+Loading required package: stringr
+Loading required package: parallel
+Obtaining command line arguments...
+Reading in genes of intrest...
+Reading in data...
+Error in fread(opt$eQTLdir) : 
+  File 'test_input/pqtl_test_data/' is a directory. Not yet implemented.
+Calls: fread -> stopf -> raise_condition -> signal
+Execution halted
+SVA: Skipped unprocessed entry (likely missing in QTL lists): A4GALT
+SVA: Skipped unprocessed entry (likely missing in QTL lists): GSTM1
+SVA: Skipped unprocessed entry (likely missing in QTL lists): GSTM4
+SVA: Skipped unprocessed entry (likely missing in QTL lists): LAYN
+SVA: Skipped unprocessed entry (likely missing in QTL lists): SERPINA3
+SVA: Skipped unprocessed entry (likely missing in QTL lists): SNUPN
+SVA: Skipped unprocessed entry (likely missing in QTL lists): TLR1
+Filtering VCFs...
+Processing: GCF_000001405.25.gz.tbi
+Processing: index.html
+Processing: integrated_call_samples_v3.20200731.ALL.ped
+[E::hts_hopen] Failed to open file 1000g_vcfs//GCF_000001405.25.gz.tbi
+[E::hts_open_format] Failed to open file "1000g_vcfs//GCF_000001405.25.gz.tbi" : Exec format error
+Failed to read from 1000g_vcfs//integrated_call_samples_v3.20200731.ALL.ped: unknown file type
+Failed to read from 1000g_vcfs//index.html: unknown file type
+Failed to read from 1000g_vcfs//GCF_000001405.25.gz.tbi: Exec format error
+[[1]]
+NULL
+
+[[2]]
+NULL
+
+[[3]]
+NULL
+
+[[4]]
+NULL
+
+[[5]]
+NULL
+
+[[6]]
+NULL
+
+[[7]]
+NULL
+
+[[8]]
+NULL
+
+[[9]]
+NULL
+
+[[10]]
+NULL
+
+[[11]]
+NULL
+
+[[12]]
+NULL
+
+[[13]]
+NULL
+
+[[14]]
+NULL
+
+[[15]]
+NULL
+
+[[16]]
+NULL
+
+[[17]]
+NULL
+
+[[18]]
+NULL
+
+[[19]]
+NULL
+
+[[20]]
+NULL
+
+[[21]]
+NULL
+
+[[22]]
+NULL
+
+[[23]]
+[1] 255
+
+[[24]]
+[1] 255
+
+[[25]]
+[1] 255
+
+Concatenating VCFs...
+Indexing VCF...
+Annotating VCF...
+[E::idx_find_and_load] Could not retrieve index file for 'LD_output/all_chr.vcf.gz'
+Failed to read from LD_output/all_chr.vcf.gz: could not load index
+Indexing annotated VCF...
+tbx_index_build failed: LD_output/all_chr_annotated.vcf.gz
+Converting VCF to PLINK...
+PLINK v2.00a6 AVX2 (23 Nov 2023)               www.cog-genomics.org/plink/2.0/
+(C) 2005-2023 Shaun Purcell, Christopher Chang   GNU General Public License v3
+Logging to LD_output/all_chr_annotated.log.
+Options in effect:
+  --allow-extra-chr
+  --make-bed
+  --out LD_output/all_chr_annotated
+  --threads 28
+  --vcf LD_output/all_chr_annotated.vcf.gz
+
+Start time: Fri Apr 25 10:09:23 2025
+31942 MiB RAM detected, ~28540 available; reserving 15971 MiB for main
+workspace.
+Using up to 28 threads (change this with --threads).
+Error: Failed to open LD_output/all_chr_annotated.vcf.gz : No such file or
+directory.
+End time: Fri Apr 25 10:09:23 2025
+Loading sample information...
+Reformatting sample information...
+Generating LD matrices and coloc inputs...

@@ -9,3 +9,4 @@ pQTL_results/
 *.log
 LD_output/
 stash/
+*_results/
