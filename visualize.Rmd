@@ -1,12 +1,12 @@
 ---
-title: "Visualization of coloc Results"
+  title: "Visualization of coloc Results"
 output: html_document
 params: 
   rdata_path: ""
 ---
-
-
-```{r setup, include=FALSE, warning=FALSE}
+  
+  
+  ```{r setup, include=FALSE, warning=FALSE}
 setwd('/home/2025/cdotson/test')
 load(params$rdata_path)
 library(locuscomparer)
@@ -23,25 +23,35 @@ locuscompare(in_fn1 = gwassnps.df, in_fn2 = twassnps.df, title1 = 'GWAS', title2
 
 Interpretation: If the causal genetic variant for higher rates of the two traits can be detected, then we would expect it to be exactly or linked with the SNP `r lead.snp`, which is located on Chromosome `r leadsnp.loc$chr[1]` at position `r leadsnp.loc$pos[1]`
 
+## Single Variant Assumption
+
+```{r sva, echo = FALSE, warning = FALSE, error = FALSE}
+knitr::kable(sva$summary, caption = 'Single Variant Assumption Summary Results', )
+sensitivity(sva, "H4 > 0.5")
+
+```
+
 ### SUSIE Run with GWAS Data
+
 There were `r gwas.count` SNP(s) across `r gwas_cc.count` credible set(s) detected in the GWAS data.
 
-### SUSIE Run with TWAS Data 
+### SUSIE Run with TWAS Data
+
 There were `r twas.count` SNP(s) across `r twas_cc.count` credible set(s) detected in the TWAS data. 
 
 ```{r reject, echo=FALSE}
 if(gwas.count == 0 | twas.count == 0){
-  print('As SUSIE found 0 causal variants in the GWAS data and/or the TWAS data, we conclude that the two traits are not colocalized at a given SNP in this region.')
+  message('As SUSIE found 0 causal variants in the GWAS data and/or the TWAS data, we conclude that the two traits are not colocalized at a given SNP in this region.')
 }
 ```
 
 ## Coloc Analyses Using Both GWAS and TWAS Data
 ```{r coloc viz, echo=FALSE, results='asis'}
 if(gwas.count != 0 & twas.count != 0){
-  print(knitr::kable(susie.sum, caption = 'coloc Summary Results', ))
+  knitr::kable(susie.sum, caption = 'Multi-Variant Assumption Summary Results', )
   sigrows = which(susie.res$summary$PP.H4.abf > 0.5)
   for(i in sigrows){
     sensitivity(susie.res,"H4 > 0.5",row=i,dataset1=gwassusiecoloc,dataset2=twassusiecoloc)
   } } else{
-      print('No further analysis for this region and phenotype neccessary!')
-}
+    message('No further analysis for this region and phenotype neccessary!')
+  }
