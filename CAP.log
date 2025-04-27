@@ -65,26 +65,43 @@ Loading required package: parallel
 Obtaining command line arguments...
 Reading in genes of intrest...
 Reading in data...
-Error in fread(opt$eQTLdir) : 
-  File 'test_input/pqtl_test_data/' is a directory. Not yet implemented.
-Calls: fread -> stopf -> raise_condition -> signal
-Execution halted
-SVA: Skipped unprocessed entry (likely missing in QTL lists): A4GALT
-SVA: Skipped unprocessed entry (likely missing in QTL lists): GSTM1
-SVA: Skipped unprocessed entry (likely missing in QTL lists): GSTM4
-SVA: Skipped unprocessed entry (likely missing in QTL lists): LAYN
-SVA: Skipped unprocessed entry (likely missing in QTL lists): SERPINA3
-SVA: Skipped unprocessed entry (likely missing in QTL lists): SNUPN
-SVA: Skipped unprocessed entry (likely missing in QTL lists): TLR1
+Formatting data for coloc analysis...
+Skipping geneNotAGeneas it is not found in seqID mapping
+
+Formatting data for coloc analysis...
+Skipping geneNotAGene2as it is not found in seqID mapping
+
+Formatting data for coloc analysis...
+PP.H0.abf PP.H1.abf PP.H2.abf PP.H3.abf PP.H4.abf 
+ 1.25e-45  4.47e-45  2.70e-02  9.54e-02  8.78e-01 
+[1] "PP abf for shared variant: 87.8%"
+SVA: Skipped unprocessed entry (likely missing in QTL lists): NotAGene
+SVA: Skipped unprocessed entry (likely missing in QTL lists): NotAGene2
+PP.H0.abf PP.H1.abf PP.H2.abf PP.H3.abf PP.H4.abf 
+  0.84700   0.05170   0.08970   0.00547   0.00566 
+[1] "PP abf for shared variant: 0.566%"
+PP.H0.abf PP.H1.abf PP.H2.abf PP.H3.abf PP.H4.abf 
+  0.00000   0.00000   0.68300   0.31300   0.00386 
+[1] "PP abf for shared variant: 0.386%"
+Warning messages:
+1: In check_dataset(d = dataset1, 1) : minimum p value is: 0.00018646
+If this is what you expected, this is not a problem.
+If this is not as small as you expected, please check you supplied var(beta) and not sd(beta) for the varbeta argument. If that's not the explanation, please check the 02_data vignette.
+2: In check_dataset(d = dataset2, 2) : minimum p value is: 0.0016931
+If this is what you expected, this is not a problem.
+If this is not as small as you expected, please check you supplied var(beta) and not sd(beta) for the varbeta argument. If that's not the explanation, please check the 02_data vignette.
+3: In check_dataset(d = dataset1, 1) : minimum p value is: 2.8092e-05
+If this is what you expected, this is not a problem.
+If this is not as small as you expected, please check you supplied var(beta) and not sd(beta) for the varbeta argument. If that's not the explanation, please check the 02_data vignette.
 Filtering VCFs...
 Processing: GCF_000001405.25.gz.tbi
 Processing: index.html
 Processing: integrated_call_samples_v3.20200731.ALL.ped
-[E::hts_hopen] Failed to open file 1000g_vcfs//GCF_000001405.25.gz.tbi
-[E::hts_open_format] Failed to open file "1000g_vcfs//GCF_000001405.25.gz.tbi" : Exec format error
-Failed to read from 1000g_vcfs//integrated_call_samples_v3.20200731.ALL.ped: unknown file type
-Failed to read from 1000g_vcfs//index.html: unknown file type
-Failed to read from 1000g_vcfs//GCF_000001405.25.gz.tbi: Exec format error
+[E::hts_hopen] Failed to open file 1000g_vcfs/GCF_000001405.25.gz.tbi
+[E::hts_open_format] Failed to open file "1000g_vcfs/GCF_000001405.25.gz.tbi" : Exec format error
+Failed to read from 1000g_vcfs/index.html: unknown file type
+Failed to read from 1000g_vcfs/integrated_call_samples_v3.20200731.ALL.ped: unknown file type
+Failed to read from 1000g_vcfs/GCF_000001405.25.gz.tbi: Exec format error
 [[1]]
 NULL
 
@@ -162,29 +179,41 @@ NULL
 
 Concatenating VCFs...
 Indexing VCF...
-Annotating VCF...
-[E::idx_find_and_load] Could not retrieve index file for 'LD_output/all_chr.vcf.gz'
-Failed to read from LD_output/all_chr.vcf.gz: could not load index
+ chr [1:22] "NC_000001.10" "NC_000002.11" "NC_000003.11" "NC_000004.11" ...
+ chr [1:22] "1" "2" "3" "4" "5" "6" "7" "8" "9" "10" "11" "12" "13" "14" ...
 Indexing annotated VCF...
-tbx_index_build failed: LD_output/all_chr_annotated.vcf.gz
 Converting VCF to PLINK...
-PLINK v2.00a6 AVX2 (23 Nov 2023)               www.cog-genomics.org/plink/2.0/
-(C) 2005-2023 Shaun Purcell, Christopher Chang   GNU General Public License v3
-Logging to LD_output/all_chr_annotated.log.
-Options in effect:
-  --allow-extra-chr
-  --make-bed
-  --out LD_output/all_chr_annotated
-  --threads 28
-  --vcf LD_output/all_chr_annotated.vcf.gz
-
-Start time: Fri Apr 25 10:09:23 2025
-31942 MiB RAM detected, ~28540 available; reserving 15971 MiB for main
-workspace.
-Using up to 28 threads (change this with --threads).
-Error: Failed to open LD_output/all_chr_annotated.vcf.gz : No such file or
-directory.
-End time: Fri Apr 25 10:09:23 2025
 Loading sample information...
 Reformatting sample information...
 Generating LD matrices and coloc inputs...
+Running: bcftools query -R 'pQTL_results/LAYN/positions_file' -f '%CHROM	%POS	%ID
+' 'LD_output/all_chr_modified.vcf.gz'  >  pQTL_results/LAYN/matches.txt
+PLINK v2.00a6 AVX2 (23 Nov 2023)               www.cog-genomics.org/plink/2.0/
+(C) 2005-2023 Shaun Purcell, Christopher Chang   GNU General Public License v3
+Logging to pQTL_results/LAYN/superpop_coloc-region.log.
+Options in effect:
+  --allow-extra-chr
+  --bfile LD_output/all_chr_modified
+  --export A
+  --extract pQTL_results/LAYN/coloc-snplist
+  --keep LD_output/superpop_list
+  --make-just-bim
+  --out pQTL_results/LAYN/superpop_coloc-region
+  --threads 28
+
+Start time: Sun Apr 27 01:12:44 2025
+31942 MiB RAM detected, ~29394 available; reserving 15971 MiB for main
+workspace.
+Using up to 28 threads (change this with --threads).
+2504 samples (0 females, 0 males, 2504 ambiguous; 2504 founders) loaded from
+LD_output/all_chr_modified.fam.
+13424776 variants loaded from LD_output/all_chr_modified.bim.
+Note: No phenotype data present.
+--extract: 578916 variants remaining.
+--keep: 503 samples remaining.
+503 samples (0 females, 0 males, 503 ambiguous; 503 founders) remaining after
+main filters.
+578916 variants remaining after main filters.
+Writing pQTL_results/LAYN/superpop_coloc-region.bim ... done.
+
+--export A pass 1/1: loading... 0%1%2%3%4%5%6%7%8%9%10%11%12%13%14%15%16%17%18%19%20%21%22%23%24%25%26%27%28%29%30%31%32%33%34%35%36%37%38%39%40%41%42%43%44%45%46%47%48%49%50%51%52%53%54%55%56%57%58%59%60%61%62%63%64%

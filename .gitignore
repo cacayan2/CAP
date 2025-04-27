@@ -10,3 +10,5 @@ pQTL_results/
 LD_output/
 stash/
 *_results/
+config.ini
+genes_pqtl.txt

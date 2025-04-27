@@ -89,14 +89,16 @@ mclapply(vcf_files, function(f) {
   corrected_file <- file.path(LD_output, "corrected", f %&% "_corrected.vcf.gz")
 
   if (!file.exists(corrected_file)) {
-    message("Processing: ", f)
+    if(!file.exists(corrected_file)) {
+      message("Processing: ", f)
     
-    cmd <- paste(
-      "bcftools view -m2 -M2 -i \"MAF>0.01\" -Oz -o", shQuote(corrected_file),
-      shQuote(file.path(LD_folder, f)),
-      "--threads", opt$threads
-    )
-    system(cmd)
+      cmd <- paste(
+        "bcftools view -m2 -M2 -i \"MAF>0.01\" -Oz -o", shQuote(corrected_file),
+        shQuote(paste0(LD_folder, f)),
+        "--threads", opt$threads
+      )
+      system(cmd)
+    }
   }
 }, mc.cores = as.integer(opt$threads))
 
@@ -125,14 +127,68 @@ if (!file.exists(all_chr_vcf %&% ".tbi")) {
   system(paste("tabix -p vcf", shQuote(all_chr_vcf)))
 }
 
+# Mapping for chromosomes 1-22
+accessions <- c(
+  "NC_000001.10", "NC_000002.11", "NC_000003.11", "NC_000004.11", "NC_000005.9",
+  "NC_000006.11", "NC_000007.13", "NC_000008.10", "NC_000009.11", "NC_000010.10",
+  "NC_000011.9", "NC_000012.11", "NC_000013.10", "NC_000014.8", "NC_000015.9",
+  "NC_000016.9", "NC_000017.10", "NC_000018.9", "NC_000019.9", "NC_000020.10",
+  "NC_000021.8", "NC_000022.10"
+)
+
+chroms <- as.character(1:22)
+
+# Setting directories for mappings
+contig_map <- LD_output %&% "/contig_map"
+contig_headers <- LD_output %&% "/contig_headers"
+
+# Write to contig_map.txt in required format
+lines <- paste0("##contig=<ID=", accessions, ",localAlias=", chroms, ">")
+writeLines(lines, contig_headers)
+
+header_lines <- readLines(contig_headers)
+contig_lines <- grep("^##contig", header_lines, value = TRUE)
+
+accessions <- str_match(contig_lines, "ID=([^,]+)")[,2]
+aliases    <- str_match(contig_lines, "localAlias=([^>]+)")[,2]
+str(accessions)
+str(aliases)
+
+contig_map_df <- data.frame(accessions, aliases)
+write.table(
+  contig_map_df, file = LD_output %&% "/contig_map",
+  sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE
+)
+
+# Set file paths
+dbsnp_input <- LD_folder %&% "GCF_000001405.25.gz"
+dbsnp_output <- LD_output %&% "/GCF_000001405.25_renamed.gz"
+
+# Construct and run bcftools command to rename chromosomes
+cmd <- paste(
+  "bcftools annotate",
+  "--rename-chrs", shQuote(contig_map),
+  "-Oz -o", shQuote(dbsnp_output),
+  shQuote(dbsnp_input)
+)
+
+if(!file.exists(dbsnp_output)) {
+  message("Running: ", cmd)
+  system(cmd)
+}
+
+if(!file.exists(dbsnp_output %&% ".tbi")) {
+  system(paste("tabix -p vcf", shQuote(dbsnp_output)))
+}
+
 # Annotate the concatenated VCF
-annotated_vcf <- file.path(LD_output, "all_chr_annotated.vcf.gz")
-dbsnp_vcf <- LD_folder %&% "GCF_000001405.25.gz" 
-vcf_to_annotate <- file.path(LD_output, "all_chr.vcf.gz")
+annotated_vcf <- paste0(LD_output, "/all_chr_modified.vcf.gz")
+dbsnp_vcf <- LD_output %&% "/GCF_000001405.25_renamed.gz" 
+vcf_to_annotate <- LD_output %&% "/all_chr.vcf.gz"
 
 # Annotate with dbSNP if the annotated file doesn't exist
-message("Annotating VCF...")
 if (!file.exists(annotated_vcf)) {
+  message("Annotating VCF...")
   cmd <- paste(
     "bcftools annotate",
     "-a", shQuote(dbsnp_vcf),
@@ -155,11 +211,10 @@ if (!file.exists(annotated_vcf %&% ".tbi")) {
 # ----------------------------
 
 message("Converting VCF to PLINK...")
-plink_prefix <- file.path(LD_output, "all_chr_annotated")
+plink_prefix <- file.path(LD_output, "all_chr_modified")
 if (!file.exists(plink_prefix %&% ".bed") ||
     !file.exists(plink_prefix %&% ".bim") ||
     !file.exists(plink_prefix %&% ".fam")) {
-
   plink_cmd <- paste(
     "plink2 --vcf", shQuote(annotated_vcf),
     "--make-bed --out", shQuote(plink_prefix),
@@ -177,7 +232,7 @@ message("Reformatting sample information...")
 sample_info <- sample_info %>% 
   mutate(
     FID = 0,
-    IID = "Individual ID",
+    IID = `Individual ID`,
     PAT = 0,
     MAT = 0,
     SEX = case_when(
@@ -228,16 +283,38 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
     qtlcoloc  <- readRDS(paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcoloc"))
     
     # Generate SNP list using annotated .bim file.
-    bim_snp <- fread(LD_output %&% "/all_chr_annotated.bim")
-    positions <- tstrsplit(qtlcoloc$snp, ":", col.names = c("CHR", "POS"))
-    snp_ids <- inner_join(positions, bim_snp, by = c("CHR", "BP")) %>% 
-      pull(SNP)
+    split_pos <- do.call(rbind, strsplit(qtlcoloc$snp, ":"))
+    write.table(split_pos, file = paste0(member, "/positions_file"), col.names = FALSE, row.names = FALSE, quote = FALSE, sep = "\t")
+    stopifnot(file.exists(paste0(member, "/positions_file")))
+
+    # Annotate using bcftools to get rsIDs
+    positions_file <- paste0(member, "/positions_file")
+    dbsnp_vcf <- paste0(LD_output, "/all_chr_modified.vcf.gz")
+    output_vcf <- tempfile(fileext = ".vcf.gz")
+
+    cmd <- paste(
+      "bcftools query",
+      "-R", shQuote(positions_file),
+      "-f '%CHROM\t%POS\t%ID\n'",
+      shQuote(dbsnp_vcf),
+      " > ", member %&% "/matches.txt"
+    )
     
-    # Write SNP list to file
-    fwrite(data.frame(snp_ids), "snp_ids_for_plink.txt", col.names = FALSE, quote = FALSE)
+    if(!file.exists(member %&% "/matches.txt")) {
+      message("Running: ", cmd)
+      system(cmd)
+    }
+
+    positions <- read.table(positions_file, header = FALSE, col.names = c("CHROM", "POS"))
+
+    vcf_matches <- read.table(member %&% "/matches.txt", header = FALSE, col.names = c("CHROM", "POS", "ID"))
+
+    final_output <- merge(vcf_matches, positions, by = c("CHROM", "POS"), all.x = TRUE)
+
+    write.table(final_output$ID, file = paste0(member, "/coloc-snplist"), col.names = FALSE, row.names = FALSE, quote = FALSE)
 
     # Generate genotype matrix using PLINK
-    system("plink2 --bfile " %&% LD_output %&% "/all_chr --extract range " %&% member %&% 
+    system("plink2 --bfile " %&% LD_output %&% "/all_chr_modified --extract " %&% member %&% 
            "/coloc-snplist --keep " %&% LD_output %&% 
            "/superpop_list --recode A --make-just-bim --out " %&% 
            member %&% "/superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
@@ -309,6 +386,7 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
       LD = R
     )
 
+    print(R)
     # Save coloc and LD results
     saveRDS(gwascolocsusie, file = paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascolocsusie"))
     saveRDS(qtlcolocsusie,  file = paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcolocsusie"))

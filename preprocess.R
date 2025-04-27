@@ -1,4 +1,3 @@
-
 if(!require(data.table)) {install.packages("data.table")}
 if(!require(dplyr)) {install.packages("dplyr")}
 if(!require(coloc)) {install.packages("coloc")}
