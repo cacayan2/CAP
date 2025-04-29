@@ -94,11 +94,11 @@ def checkLDdata(output_folder: str, ld: str):
         if not os.path.isfile(f"ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"):
             os.system(f"wget -q --show-progress ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz")
     if not os.path.isfile(f"integrated_call_samples_v3.20200731.ALL.ped"):
-        os.system(f"wget -q --show-progress ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped")
-    if not os.path.isfile(f"GCF_000001405.25.gz"):
-        os.system(f"wget -q --show-progress ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz")
-    if not os.path.isfile("GCF_000001405.25.gz.tbi"):
-        os.system(f"wget -q --show-progress ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi")
+        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped")
+    if not os.path.isfile(f"GCF_000001405.40.gz"):
+        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.40.gz")
+    if not os.path.isfile("GCF_000001405.40.gz.tbi"):
+        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.40.gz.tbi")
 
     os.chdir(current_wd)
     return ld_dir
@@ -146,6 +146,9 @@ def main():
     
     print("WRAPPER: Downloaded LD data! Starting single variant assumption analysis and LD data processing...")
     os.system(f"Rscript svassumption.R --process {arguments.process} --superpop {arguments.superpop} --output {arguments.output} --data {arguments.output} --lddir {ld_dir} --lddownload {arguments.ld} --threads {arguments.threads} >> CAP.log 2>&1")
+
+    print("WRAPPER: Finished generating LD data processing and single variant assumption! Starting locuscomparer...")
+    os.system(f"Rscript locuscomparer.R --genes {constants.genes()} --outputdir {arguments.output} >> CAP.log 2>&1")
 
 if __name__ == "__main__":
     main()

@@ -80,27 +80,6 @@ for (member in data_members) {
 
 # Create LD output directories if they don’t exist
 if (!file.exists(LD_output)) dir.create(LD_output)
-if (!dir.exists(file.path(LD_output, "corrected"))) dir.create(file.path(LD_output, "corrected"))
-
-# Process and filter .vcf.gz files using bcftools with threading
-message("Filtering VCFs...")
-vcf_files <- list.files(LD_folder, full.names = FALSE)[-1]  # Skip "." entry
-mclapply(vcf_files, function(f) {
-  corrected_file <- file.path(LD_output, "corrected", f %&% "_corrected.vcf.gz")
-
-  if (!file.exists(corrected_file)) {
-    if(!file.exists(corrected_file)) {
-      message("Processing: ", f)
-    
-      cmd <- paste(
-        "bcftools view -m2 -M2 -i \"MAF>0.01\" -Oz -o", shQuote(corrected_file),
-        shQuote(paste0(LD_folder, f)),
-        "--threads", opt$threads
-      )
-      system(cmd)
-    }
-  }
-}, mc.cores = as.integer(opt$threads))
 
 # ----------------------------
 # Concatenate and Index VCFs
@@ -108,32 +87,26 @@ mclapply(vcf_files, function(f) {
 
 # Concatenate all corrected chromosome files
 message("Concatenating VCFs...")
-all_chr_vcf <- file.path(LD_output, "all_chr.vcf.gz")
+all_chr_vcf <- paste0(LD_output, "/all_chr.vcf.gz")
 if (!file.exists(all_chr_vcf)) {
-  input_files <- Sys.glob(file.path(LD_output, "corrected", "ALL.chr*_corrected.vcf.gz"))
+  input_files <- Sys.glob(file.path(LD_folder, "ALL.chr*.vcf.gz"))
   input_str <- paste(shQuote(input_files), collapse = " ")
 
   cmd <- paste(
     "bcftools concat -Oz --threads", opt$threads,
     "-o", shQuote(all_chr_vcf),
-    input_str
+    input_str, "--write-index"
   )
   system(cmd)
 }
 
-# Index the concatenated VCF
-message("Indexing VCF...")
-if (!file.exists(all_chr_vcf %&% ".tbi")) {
-  system(paste("tabix -p vcf", shQuote(all_chr_vcf)))
-}
-
 # Mapping for chromosomes 1-22
 accessions <- c(
-  "NC_000001.10", "NC_000002.11", "NC_000003.11", "NC_000004.11", "NC_000005.9",
-  "NC_000006.11", "NC_000007.13", "NC_000008.10", "NC_000009.11", "NC_000010.10",
-  "NC_000011.9", "NC_000012.11", "NC_000013.10", "NC_000014.8", "NC_000015.9",
-  "NC_000016.9", "NC_000017.10", "NC_000018.9", "NC_000019.9", "NC_000020.10",
-  "NC_000021.8", "NC_000022.10"
+  "NC_000001.11", "NC_000002.12", "NC_000003.12", "NC_000004.12", "NC_000005.10",
+  "NC_000006.12", "NC_000007.14", "NC_000008.11", "NC_000009.12", "NC_000010.11",
+  "NC_000011.10", "NC_000012.12", "NC_000013.11", "NC_000014.9", "NC_000015.10",
+  "NC_000016.10", "NC_000017.11", "NC_000018.10", "NC_000019.10", "NC_000020.11",
+  "NC_000021.9", "NC_000022.11"
 )
 
 chroms <- as.character(1:22)
@@ -151,8 +124,6 @@ contig_lines <- grep("^##contig", header_lines, value = TRUE)
 
 accessions <- str_match(contig_lines, "ID=([^,]+)")[,2]
 aliases    <- str_match(contig_lines, "localAlias=([^>]+)")[,2]
-str(accessions)
-str(aliases)
 
 contig_map_df <- data.frame(accessions, aliases)
 write.table(
@@ -161,49 +132,43 @@ write.table(
 )
 
 # Set file paths
-dbsnp_input <- LD_folder %&% "GCF_000001405.25.gz"
-dbsnp_output <- LD_output %&% "/GCF_000001405.25_renamed.gz"
+dbsnp_input <- LD_folder %&% "GCF_000001405.40.gz"
+dbsnp_output <- LD_output %&% "/GCF_000001405.40_renamed.gz"
 
 # Construct and run bcftools command to rename chromosomes
 cmd <- paste(
   "bcftools annotate",
   "--rename-chrs", shQuote(contig_map),
   "-Oz -o", shQuote(dbsnp_output),
-  shQuote(dbsnp_input)
+  shQuote(dbsnp_input),
+  "--write-index"
 )
 
 if(!file.exists(dbsnp_output)) {
+  message("Renaming chromosomes...")
   message("Running: ", cmd)
   system(cmd)
 }
 
-if(!file.exists(dbsnp_output %&% ".tbi")) {
-  system(paste("tabix -p vcf", shQuote(dbsnp_output)))
-}
 
 # Annotate the concatenated VCF
 annotated_vcf <- paste0(LD_output, "/all_chr_modified.vcf.gz")
-dbsnp_vcf <- LD_output %&% "/GCF_000001405.25_renamed.gz" 
+dbsnp_vcf <- LD_output %&% "/GCF_000001405.40_renamed.gz" 
 vcf_to_annotate <- LD_output %&% "/all_chr.vcf.gz"
 
 # Annotate with dbSNP if the annotated file doesn't exist
 if (!file.exists(annotated_vcf)) {
-  message("Annotating VCF...")
+  message("Annotating renamed VCF...")
   cmd <- paste(
     "bcftools annotate",
     "-a", shQuote(dbsnp_vcf),
     "-c CHROM,POS,ID",                  # Columns to annotate (adjust as needed)
     "-Oz",                              # Output in bgzipped format
     "-o", shQuote(annotated_vcf),       # Output file
-    shQuote(vcf_to_annotate)            # Input file
+    shQuote(vcf_to_annotate), 
+    , "--write-index"
   )
   system(cmd)
-}
-
-# Index the annotated VCF
-message("Indexing annotated VCF...")
-if (!file.exists(annotated_vcf %&% ".tbi")) {
-  system(paste("tabix -p vcf", shQuote(annotated_vcf)))
 }
 
 # ----------------------------
@@ -218,7 +183,7 @@ if (!file.exists(plink_prefix %&% ".bed") ||
   plink_cmd <- paste(
     "plink2 --vcf", shQuote(annotated_vcf),
     "--make-bed --out", shQuote(plink_prefix),
-    "--allow-extra-chr --threads", opt$threads
+    "--allow-extra-chr --max-alleles 2", "--threads", opt$threads
   )
   system(plink_cmd)
 }
@@ -289,7 +254,7 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
 
     # Annotate using bcftools to get rsIDs
     positions_file <- paste0(member, "/positions_file")
-    dbsnp_vcf <- paste0(LD_output, "/all_chr_modified.vcf.gz")
+    dbsnp_vcf <- paste0(LD_output, "/GCF_000001405.40_renamed.gz")
     output_vcf <- tempfile(fileext = ".vcf.gz")
 
     cmd <- paste(
@@ -317,7 +282,7 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
     system("plink2 --bfile " %&% LD_output %&% "/all_chr_modified --extract " %&% member %&% 
            "/coloc-snplist --keep " %&% LD_output %&% 
            "/superpop_list --recode A --make-just-bim --out " %&% 
-           member %&% "/superpop_coloc-region --allow-extra-chr --threads " %&% opt$threads)
+           member %&% "/superpop_coloc-region --allow-extra-chr --maf 0.01 --threads " %&% opt$threads)
 
     # Read PLINK genotype data
     geno <- fread(member %&% "/superpop_coloc-region.raw")
