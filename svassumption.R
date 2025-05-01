@@ -89,13 +89,20 @@ if (!file.exists(LD_output)) dir.create(LD_output)
 message("Concatenating VCFs...")
 all_chr_vcf <- paste0(LD_output, "/all_chr.vcf.gz")
 if (!file.exists(all_chr_vcf)) {
-  input_files <- Sys.glob(file.path(LD_folder, "ALL.chr*.vcf.gz"))
-  input_str <- paste(shQuote(input_files), collapse = " ")
-
+  input_files <- LD_folder %&% "/ALL.chr*.vcf.gz"
   cmd <- paste(
     "bcftools concat -Oz --threads", opt$threads,
     "-o", shQuote(all_chr_vcf),
-    input_str, "--write-index"
+    input_files
+  )
+  system(cmd)
+}
+
+# Create index file for concatenated file.
+if (!file.exists(all_chr_vcf %&% ".csi") & !file.exists(all_chr_vcf %&% ".tbi")) {
+  message("Indexing VCF...")
+  cmd <- paste(
+    "tabix -p vcf", shQuote(all_chr_vcf)
   )
   system(cmd)
 }
@@ -132,8 +139,8 @@ write.table(
 )
 
 # Set file paths
-dbsnp_input <- LD_folder %&% "GCF_000001405.40.gz"
-dbsnp_output <- LD_output %&% "/GCF_000001405.40_renamed.gz"
+dbsnp_input <- LD_folder %&% "GCF_000001405.25.gz"
+dbsnp_output <- LD_output %&% "/GCF_000001405.25_renamed.gz"
 
 # Construct and run bcftools command to rename chromosomes
 cmd <- paste(
@@ -141,7 +148,7 @@ cmd <- paste(
   "--rename-chrs", shQuote(contig_map),
   "-Oz -o", shQuote(dbsnp_output),
   shQuote(dbsnp_input),
-  "--write-index"
+  "--threads", opt$threads
 )
 
 if(!file.exists(dbsnp_output)) {
@@ -150,23 +157,40 @@ if(!file.exists(dbsnp_output)) {
   system(cmd)
 }
 
+# Index renamed file
+message("Indexing renamed file...")
+if (!file.exists(dbsnp_output %&% ".csi") & !file.exists(dbsnp_output %&% ".tbi")) {
+  cmd <- paste(
+    "tabix -p vcf", shQuote(dbsnp_output)
+  )
+  system(cmd)
+}
 
 # Annotate the concatenated VCF
 annotated_vcf <- paste0(LD_output, "/all_chr_modified.vcf.gz")
-dbsnp_vcf <- LD_output %&% "/GCF_000001405.40_renamed.gz" 
+dbsnp_vcf <- LD_output %&% "/GCF_000001405.25_renamed.gz" 
 vcf_to_annotate <- LD_output %&% "/all_chr.vcf.gz"
 
 # Annotate with dbSNP if the annotated file doesn't exist
 if (!file.exists(annotated_vcf)) {
-  message("Annotating renamed VCF...")
+  message("Annotating VCF using renamed files...")
   cmd <- paste(
     "bcftools annotate",
-    "-a", shQuote(dbsnp_vcf),
-    "-c CHROM,POS,ID",                  # Columns to annotate (adjust as needed)
+    "-a", shQuote(dbsnp_vcf),              # Columns to annotate (adjust as needed)
+    "-c CHROM,POS,ID",
     "-Oz",                              # Output in bgzipped format
     "-o", shQuote(annotated_vcf),       # Output file
-    shQuote(vcf_to_annotate), 
-    , "--write-index"
+    shQuote(vcf_to_annotate),
+    "--threads", opt$threads
+  )
+  system(cmd)
+}
+
+# Index annotated file
+message("Indexing annotated file...")
+if (!file.exists(annotated_vcf %&% ".csi") & !file.exists(annotated_vcf %&% ".tbi")) {
+  cmd <- paste(
+    "tabix -p vcf", shQuote(annotated_vcf)
   )
   system(cmd)
 }
@@ -181,7 +205,7 @@ if (!file.exists(plink_prefix %&% ".bed") ||
     !file.exists(plink_prefix %&% ".bim") ||
     !file.exists(plink_prefix %&% ".fam")) {
   plink_cmd <- paste(
-    "plink2 --vcf", shQuote(annotated_vcf),
+    "plink2 --vcf", shQuote(all_chr_vcf),
     "--make-bed --out", shQuote(plink_prefix),
     "--allow-extra-chr --max-alleles 2", "--threads", opt$threads
   )
@@ -233,7 +257,7 @@ if (opt$superpop %in% unique(sample_info$Population)) {
 }
 
 # Write FID/IID list for selected individuals
-superpoplist <- mutate(superpop, FID = 0) %>% select(FID, IID)
+superpoplist <- mutate(superpop, FID = 0) %>% select(IID)
 fwrite(superpoplist, paste0(LD_output, "/superpop_list"), col.names = FALSE, sep = "\t")
 
 # Generate LD matrices and coloc inputs if running for QTL-based analyses
@@ -254,7 +278,8 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
 
     # Annotate using bcftools to get rsIDs
     positions_file <- paste0(member, "/positions_file")
-    dbsnp_vcf <- paste0(LD_output, "/GCF_000001405.40_renamed.gz")
+    dbsnp_vcf <- paste0(LD_output, "/GCF_000001405.25_renamed.gz")
+    all_chr_file <- paste0(LD_output, "/all_chr_modified.vcf.gz")
     output_vcf <- tempfile(fileext = ".vcf.gz")
 
     cmd <- paste(
@@ -265,10 +290,9 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
       " > ", member %&% "/matches.txt"
     )
     
-    if(!file.exists(member %&% "/matches.txt")) {
-      message("Running: ", cmd)
-      system(cmd)
-    }
+    message("Running: ", cmd)
+    system(cmd)
+    
 
     positions <- read.table(positions_file, header = FALSE, col.names = c("CHROM", "POS"))
 
@@ -351,7 +375,6 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
       LD = R
     )
 
-    print(R)
     # Save coloc and LD results
     saveRDS(gwascolocsusie, file = paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_gwascolocsusie"))
     saveRDS(qtlcolocsusie,  file = paste0(member, str_replace(paste0("/", member), paste0(TWAS_folder, "/"), ""), "_qtlcolocsusie"))
