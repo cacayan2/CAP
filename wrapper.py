@@ -95,10 +95,10 @@ def checkLDdata(output_folder: str, ld: str):
             os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chr{str(x)}.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz")
     if not os.path.isfile(f"integrated_call_samples_v3.20200731.ALL.ped"):
         os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped")
-    if not os.path.isfile(f"GCF_000001405.25.gz"):
-        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz")
-    if not os.path.isfile("GCF_000001405.25.gz.tbi"):
-        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.25.gz.tbi")
+    if not os.path.isfile(f"GCF_000001405.40.gz"):
+        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.40.gz")
+    if not os.path.isfile("GCF_000001405.40.gz.tbi"):
+        os.system(f"wget --timeout=30 --tries=10 --waitretry=5 -q --show-progress -c https://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.40.gz.tbi")
 
     os.chdir(current_wd)
     return ld_dir
@@ -111,6 +111,7 @@ def main():
     # Parse command-line arguments
     arguments = check_arg(sys.argv[1:])
     
+    # Checking if arguments are correct. 
     print("WRAPPER: Verifying arguments are correct...")
     sanity_check(arguments.process, arguments.test, arguments.superpop, arguments.ld)
     
@@ -132,21 +133,24 @@ def main():
     # Preprocess data based on the process type (eQTL or pQTL)
     if arguments.process == "eqtl":
         print("WRAPPER: Preprocessing eQTL data...")
-        # os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --GWASdir {constants.GWASdir()} --eQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
+        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --GWASdir {constants.GWASdir()} --eQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
     else:
         print("WRAPPER: Preprocessing pQTL data...")
-        # os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --pQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
+        os.system(f"Rscript preprocess.R --process {arguments.process} --genes {constants.genes()} --seqIDdir {constants.seqID_dir()} --GWASdir {constants.GWASdir()} --pQTLdir {constants.data_dir()} --CHR_input {constants.CHR_input()} --BP_input {constants.BP_input()} --A1_input {constants.A1_input()} --A2_input {constants.A2_input()} --BETA_input {constants.BETA_input()} --SE_input {constants.SE_input()} --outputdir {arguments.output} >> CAP.log 2>&1")
     
     print("WRAPPER: Completed preprocessing! Generating LD data for multivariant assumption colocalization...")
+    
     # Handle LD data downloading and processing
     if arguments.ld in ["True", "true", "T", "t"]:
         ld_dir = checkLDdata("1000g_vcfs/", arguments.ld)
     else:
         ld_dir = checkLDdata(constants.LD_dir(), arguments.ld)
     
+    # Run single variant assumption and LD data processing
     print("WRAPPER: Downloaded LD data! Starting single variant assumption analysis and LD data processing...")
     os.system(f"Rscript svassumption.R --process {arguments.process} --superpop {arguments.superpop} --output {arguments.output} --data {arguments.output} --lddir {ld_dir} --lddownload {arguments.ld} --threads {arguments.threads} >> CAP.log 2>&1")
 
+    # Run locuscompare and visualization
     print("WRAPPER: Finished generating LD data processing and single variant assumption! Starting locuscompare...")
     os.system(f"Rscript locuscompare.R --genes {constants.genes()} --outputdir {arguments.output}/ >> CAP.log 2>&1")
 

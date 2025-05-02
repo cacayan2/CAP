@@ -10,10 +10,10 @@ suppressPackageStartupMessages({
   invisible(library(parallel))
 })
 
-# ----------------------------
-# Function: Single-variant coloc for QTL vs GWAS
-# ----------------------------
 sva_QTL <- function(TWAS_folder, member) {
+  """
+  Function used to perform single variant analysis on data. 
+  """
   member_suffix <- str_replace(paste0("/", member), paste0(TWAS_folder, "/"), "")
   gwascoloc <- readRDS(paste0(member, member_suffix, "_gwascoloc"))
   qtlcoloc  <- readRDS(paste0(member, member_suffix, "_qtlcoloc"))
@@ -25,9 +25,7 @@ sva_QTL <- function(TWAS_folder, member) {
 # String concatenation operator
 "%&%" <- function(a, b) paste0(a, b)
 
-# ----------------------------
-# Command-line argument parsing
-# ----------------------------
+# Command line arguments. 
 option_list <- list(
   make_option("--process", type = "character", default = "pqtl", 
               help = "If using eqtl data, add process flag, otherwise pqtl is the default."),
@@ -45,15 +43,12 @@ option_list <- list(
               help = "Number of threads to use.")
 )
 
+# Parse command line arguments
 opt <- optparse::parse_args(OptionParser(option_list = option_list))
 
 # Set up paths
 LD_folder <- opt$lddir
 LD_output <- file.path("LD_output")
-
-# ----------------------------
-# Prepare TWAS Data & Run SVA
-# ----------------------------
 
 # Remove trailing slash from --data path
 TWAS_folder <- str_replace(opt$data, "/", "")
@@ -74,21 +69,13 @@ for (member in data_members) {
   saveRDS(current_sva, file = file.path(member, member_name %&% "_sva"))
 }
 
-# ----------------------------
-# LD Matrix Preprocessing
-# ----------------------------
-
 # Create LD output directories if they don’t exist
 if (!file.exists(LD_output)) dir.create(LD_output)
 
-# ----------------------------
-# Concatenate and Index VCFs
-# ----------------------------
-
 # Concatenate all corrected chromosome files
-message("Concatenating VCFs...")
 all_chr_vcf <- paste0(LD_output, "/all_chr.vcf.gz")
 if (!file.exists(all_chr_vcf)) {
+  message("Concatenating VCF files...")
   input_files <- LD_folder %&% "/ALL.chr*.vcf.gz"
   cmd <- paste(
     "bcftools concat -Oz --threads", opt$threads,
@@ -115,7 +102,6 @@ accessions <- c(
   "NC_000016.10", "NC_000017.11", "NC_000018.10", "NC_000019.10", "NC_000020.11",
   "NC_000021.9", "NC_000022.11"
 )
-
 chroms <- as.character(1:22)
 
 # Setting directories for mappings
@@ -126,12 +112,15 @@ contig_headers <- LD_output %&% "/contig_headers"
 lines <- paste0("##contig=<ID=", accessions, ",localAlias=", chroms, ">")
 writeLines(lines, contig_headers)
 
+# Reading header lines and contig lines for mapping. 
 header_lines <- readLines(contig_headers)
 contig_lines <- grep("^##contig", header_lines, value = TRUE)
 
+# Extracting accessions and aliases
 accessions <- str_match(contig_lines, "ID=([^,]+)")[,2]
 aliases    <- str_match(contig_lines, "localAlias=([^>]+)")[,2]
 
+# Creating contig_map dataframe
 contig_map_df <- data.frame(accessions, aliases)
 write.table(
   contig_map_df, file = LD_output %&% "/contig_map",
@@ -139,10 +128,11 @@ write.table(
 )
 
 # Set file paths
-dbsnp_input <- LD_folder %&% "GCF_000001405.25.gz"
-dbsnp_output <- LD_output %&% "/GCF_000001405.25_renamed.gz"
+dbsnp_input <- LD_folder %&% "GCF_000001405.40.gz"
+dbsnp_output <- LD_output %&% "/GCF_000001405.40_renamed.gz"
 
-# Construct and run bcftools command to rename chromosomes
+# Construct and run bcftools command to rename chromosomes (chromosomes in dbsnp were accession numbers
+# - renamed so that they match 1000 genomes dataset).
 cmd <- paste(
   "bcftools annotate",
   "--rename-chrs", shQuote(contig_map),
@@ -150,16 +140,16 @@ cmd <- paste(
   shQuote(dbsnp_input),
   "--threads", opt$threads
 )
-
 if(!file.exists(dbsnp_output)) {
   message("Renaming chromosomes...")
   message("Running: ", cmd)
   system(cmd)
 }
 
-# Index renamed file
-message("Indexing renamed file...")
+# Create index for renamed dbsnp file. 
+
 if (!file.exists(dbsnp_output %&% ".csi") & !file.exists(dbsnp_output %&% ".tbi")) {
+  message("Indexing renamed file...")
   cmd <- paste(
     "tabix -p vcf", shQuote(dbsnp_output)
   )
@@ -168,18 +158,16 @@ if (!file.exists(dbsnp_output %&% ".csi") & !file.exists(dbsnp_output %&% ".tbi"
 
 # Annotate the concatenated VCF
 annotated_vcf <- paste0(LD_output, "/all_chr_modified.vcf.gz")
-dbsnp_vcf <- LD_output %&% "/GCF_000001405.25_renamed.gz" 
+dbsnp_vcf <- LD_output %&% "/GCF_000001405.40_renamed.gz" 
 vcf_to_annotate <- LD_output %&% "/all_chr.vcf.gz"
-
-# Annotate with dbSNP if the annotated file doesn't exist
 if (!file.exists(annotated_vcf)) {
   message("Annotating VCF using renamed files...")
   cmd <- paste(
     "bcftools annotate",
-    "-a", shQuote(dbsnp_vcf),              # Columns to annotate (adjust as needed)
-    "-c CHROM,POS,ID",
-    "-Oz",                              # Output in bgzipped format
-    "-o", shQuote(annotated_vcf),       # Output file
+    "-a", shQuote(dbsnp_vcf),              
+    "-c ID",
+    "-Oz",                              
+    "-o", shQuote(annotated_vcf),       
     shQuote(vcf_to_annotate),
     "--threads", opt$threads
   )
@@ -187,23 +175,21 @@ if (!file.exists(annotated_vcf)) {
 }
 
 # Index annotated file
-message("Indexing annotated file...")
-if (!file.exists(annotated_vcf %&% ".csi") & !file.exists(annotated_vcf %&% ".tbi")) {
+if (!file.exists(annotated_vcf %&% ".csi") & !file.exists(annotated_vcf %&% ".tbi")) {\
+  message("Indexing annotated file...")
   cmd <- paste(
     "tabix -p vcf", shQuote(annotated_vcf)
   )
   system(cmd)
 }
 
-# ----------------------------
-# Convert VCF to PLINK Format
-# ----------------------------
 
-message("Converting VCF to PLINK...")
+# Running plink to generate .bed, .bim, and .fam files for 1000 genomes data. 
 plink_prefix <- file.path(LD_output, "all_chr_modified")
 if (!file.exists(plink_prefix %&% ".bed") ||
     !file.exists(plink_prefix %&% ".bim") ||
     !file.exists(plink_prefix %&% ".fam")) {
+  message("Converting VCF to PLINK...")
   plink_cmd <- paste(
     "plink2 --vcf", shQuote(all_chr_vcf),
     "--make-bed --out", shQuote(plink_prefix),
@@ -276,12 +262,13 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
     write.table(split_pos, file = paste0(member, "/positions_file"), col.names = FALSE, row.names = FALSE, quote = FALSE, sep = "\t")
     stopifnot(file.exists(paste0(member, "/positions_file")))
 
-    # Annotate using bcftools to get rsIDs
+    # Set directories. 
     positions_file <- paste0(member, "/positions_file")
-    dbsnp_vcf <- paste0(LD_output, "/GCF_000001405.25_renamed.gz")
+    dbsnp_vcf <- paste0(LD_output, "/GCF_000001405.40_renamed.gz")
     all_chr_file <- paste0(LD_output, "/all_chr_modified.vcf.gz")
     output_vcf <- tempfile(fileext = ".vcf.gz")
 
+    # Query on positions file to obtain rsID's. 
     cmd <- paste(
       "bcftools query",
       "-R", shQuote(positions_file),
@@ -289,17 +276,13 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
       shQuote(dbsnp_vcf),
       " > ", member %&% "/matches.txt"
     )
-    
     message("Running: ", cmd)
     system(cmd)
     
-
+    # Writing the rsID's to coloc-snplist.
     positions <- read.table(positions_file, header = FALSE, col.names = c("CHROM", "POS"))
-
     vcf_matches <- read.table(member %&% "/matches.txt", header = FALSE, col.names = c("CHROM", "POS", "ID"))
-
     final_output <- merge(vcf_matches, positions, by = c("CHROM", "POS"), all.x = TRUE)
-
     write.table(final_output$ID, file = paste0(member, "/coloc-snplist"), col.names = FALSE, row.names = FALSE, quote = FALSE)
 
     # Generate genotype matrix using PLINK
@@ -309,7 +292,7 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
            member %&% "/superpop_coloc-region --allow-extra-chr --maf 0.01 --threads " %&% opt$threads)
 
     # Read PLINK genotype data
-    geno <- fread(member %&% "/superpop_coloc-region.raw")
+    geno <- fread(member %&% "/superpop_coloc-region.raw")ge
     genomat <- as.matrix(geno[, 7:ncol(geno)])
     snplist <- substr(colnames(genomat), 1, nchar(colnames(genomat)) - 2)
     colnames(genomat) <- snplist
@@ -362,7 +345,6 @@ if (opt$process == "pqtl" | opt$process == "eqtl") {
       LD = R,
       N = 100000
     )
-
     qtlcolocsusie <- list(
       beta = setNames(susiesnps$BETA.x, susiesnps$ID),
       varbeta = (susiesnps$SE.x)^2,

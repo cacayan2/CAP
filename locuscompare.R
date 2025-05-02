@@ -22,12 +22,15 @@ option_list <- list(
 
 opt <- parse_args(OptionParser(option_list = option_list))
 
-genes <- opt$genes
+genes <- read.table(opt$genes)
+genes <- genes$V1
+print(str(genes))
 out_dir <- opt$outputdir
 
 save.image("~/test.RData")
 coloc_construct <- function(genes){
   for(gene_name in genes){
+    print(str(gene_name))
     if(file.exists(paste0(out_dir, gene_name, "/", gene_name, "_gwascoloc")) & file.exists(paste0(out_dir, gene_name, "/", gene_name, "_qtlcoloc"))){
       gene.name <- gene_name
       gene.dir <- paste0(out_dir, gene_name, "/")
