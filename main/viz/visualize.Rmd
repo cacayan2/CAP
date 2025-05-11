@@ -7,7 +7,6 @@ params:
   
   
   ```{r setup, include=FALSE, warning=FALSE}
-setwd('/home/2025/cdotson/test')
 load(params$rdata_path)
 library(locuscomparer)
 library(knitr)

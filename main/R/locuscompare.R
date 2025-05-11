@@ -23,7 +23,7 @@ option_list <- list(
 opt <- parse_args(OptionParser(option_list = option_list))
 
 genes <- read.table(opt$genes)
-genes <- genes$V1
+genes <- genes$genes
 print(str(genes))
 out_dir <- opt$outputdir
 
